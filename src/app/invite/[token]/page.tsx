@@ -41,15 +41,12 @@ function InviteAcceptContent({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Simple joining form fields
+  // 1-Step joining form fields (Real name only)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [khmerName, setKhmerName] = useState("");
-  const [password, setPassword] = useState("");
-  const [hasExistingAccount, setHasExistingAccount] = useState(false);
 
   useEffect(() => {
     async function checkAuthAndInvite() {
@@ -69,9 +66,8 @@ function InviteAcceptContent({ token }: { token: string }) {
             }
           }
         } catch {
-          hasUser = false;
+          // offline or unauthenticated
         }
-        setIsLoggedIn(hasUser);
 
         const res = await fetch(`/api/invitations/${token}`);
         const data = await res.json();
@@ -108,62 +104,10 @@ function InviteAcceptContent({ token }: { token: string }) {
       return;
     }
 
-    if (!isLoggedIn && password.length < 6) {
-      setErrorMsg(
-        language === "km"
-          ? "សូមបង្កើតពាក្យសម្ងាត់យ៉ាងតិច ៦ តួអក្សរដើម្បីការពារគណនីរបស់អ្នក។"
-          : "Please enter a password with at least 6 characters to secure your access."
-      );
-      return;
-    }
-
     setSubmitting(true);
 
     try {
-      const supabase = createClient();
-
-      // If not logged in, authenticate using the invitation email
-      if (!isLoggedIn && invite) {
-        if (hasExistingAccount) {
-          const { error: signInErr } = await supabase.auth.signInWithPassword({
-            email: invite.email,
-            password,
-          });
-          if (signInErr) {
-            throw new Error(signInErr.message);
-          }
-        } else {
-          const { error: signUpErr } = await supabase.auth.signUp({
-            email: invite.email,
-            password,
-            options: {
-              data: {
-                full_name: `${cleanLast} ${cleanFirst}`,
-              },
-            },
-          });
-          if (signUpErr) {
-            // If already registered, attempt sign-in
-            if (signUpErr.message.toLowerCase().includes("already registered")) {
-              const { error: retrySignInErr } = await supabase.auth.signInWithPassword({
-                email: invite.email,
-                password,
-              });
-              if (retrySignInErr) {
-                throw new Error(
-                  language === "km"
-                    ? "អ៊ីមែលនេះមានគណនីរួចហើយ។ សូមបញ្ចូលពាក្យសម្ងាត់ត្រឹមត្រូវ។"
-                    : "This email already has an account. Please enter the correct password."
-                );
-              }
-            } else {
-              throw new Error(signUpErr.message);
-            }
-          }
-        }
-      }
-
-      // Accept the invitation with real name details
+      // Accept the invitation directly with real name details
       const res = await fetch(`/api/invitations/${token}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -387,55 +331,7 @@ function InviteAcceptContent({ token }: { token: string }) {
                 />
               </div>
 
-              {/* Account Credentials if guest */}
-              {!isLoggedIn && (
-                <div className="pt-2 border-t border-slate-800/80 space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      {language === "km" ? "អាសយដ្ឋានអ៊ីមែលអញ្ជើញ" : "Invited Email"}
-                    </label>
-                    <input
-                      type="email"
-                      readOnly
-                      disabled
-                      value={invite.email}
-                      className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed"
-                    />
-                  </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-medium text-slate-300">
-                        {hasExistingAccount
-                          ? language === "km" ? "ពាក្យសម្ងាត់របស់អ្នក" : "Your Password"
-                          : language === "km" ? "បង្កើតពាក្យសម្ងាត់ (យ៉ាងតិច ៦ តួ) *" : "Create Password (Min 6 chars) *"}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setHasExistingAccount(!hasExistingAccount)}
-                        className="text-[11px] text-[#d4af37] hover:underline"
-                      >
-                        {hasExistingAccount
-                          ? language === "km" ? "បង្កើតគណនីថ្មី?" : "Create new account?"
-                          : language === "km" ? "មានគណនីរួចហើយ?" : "Already have account?"}
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                        <Lock className="w-3.5 h-3.5" />
-                      </div>
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Submit Button */}
               <button

@@ -273,12 +273,23 @@ export async function acceptInvitation(
 ) {
   const invitation = await validateInvitationToken(token);
 
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { id: userId },
   });
 
   if (!user) {
-    throw new AuthorizationError("User profile does not exist.", 401);
+    const fullName = personDetails
+      ? `${personDetails.lastName} ${personDetails.firstName}`
+      : invitation.email.split("@")[0] || "Family Relative";
+
+    user = await prisma.user.create({
+      data: {
+        id: userId,
+        email: invitation.email,
+        fullName,
+        language: "km",
+      },
+    });
   }
 
   // Execute in atomic transaction to prevent race conditions or double redemption

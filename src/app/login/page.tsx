@@ -1,57 +1,22 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/lib/i18n/context";
-import { createClient } from "@/lib/supabase/client";
-import { Scroll, Shield, Lock, Mail, ArrowRight, AlertCircle } from "lucide-react";
+import { Scroll, ArrowRight, Loader2, Sparkles } from "lucide-react";
 
-function LoginForm() {
+function LoginRedirectContent() {
   const { language, setLanguage, t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get("redirectedFrom") || "/dashboard";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setLoading(true);
-
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setErrorMsg(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (data.session) {
-        router.push(redirectedFrom);
-        router.refresh();
-      }
-    } catch (err: unknown) {
-      const e = err as Error;
-      if (e.message?.includes("fetch") || e.message === "Failed to fetch") {
-        setErrorMsg(
-          "Unable to connect to Supabase authentication (Failed to fetch). Please configure valid NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
-        );
-      } else {
-        setErrorMsg(e.message || "An unexpected error occurred.");
-      }
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    // Automatically redirect directly to the family dashboard
+    const target = redirectedFrom.startsWith("/login") ? "/dashboard" : redirectedFrom;
+    router.replace(target);
+  }, [router, redirectedFrom]);
 
   return (
     <div className="min-h-screen bg-[#0c0f14] heritage-bg-pattern flex flex-col justify-between p-4 sm:p-6 lg:p-8 font-khmer">
@@ -100,106 +65,48 @@ function LoginForm() {
         </div>
       </div>
 
-      {/* Main Login Card */}
-      <div className="w-full max-w-md mx-auto my-8">
-        <div className="heritage-card-elevated p-8 sm:p-10 relative overflow-hidden">
+      {/* Main Direct Family Access Card */}
+      <div className="max-w-md w-full mx-auto my-12">
+        <div className="heritage-card-elevated p-8 relative overflow-hidden shadow-2xl text-center">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent" />
 
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] mb-4">
-              <Shield className="w-7 h-7" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
-              {t.auth.signInTitle}
-            </h1>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {t.auth.signInSubtitle}
-            </p>
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-[#d4af37]/10 border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] shadow-lg shadow-[#d4af37]/10">
+            <Sparkles className="w-7 h-7" />
           </div>
 
-          {errorMsg && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 flex items-start gap-3 text-rose-200 text-xs">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+          <h1 className="text-xl sm:text-2xl font-bold font-heritage text-white tracking-tight mb-2">
+            {language === "km" ? "កំពុងចូលទៅកាន់ដែនគ្រួសារ..." : "Accessing Family Space..."}
+          </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                {t.auth.emailLabel}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="relative@familyheritage.org"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] transition-all"
-                />
-              </div>
-            </div>
+          <p className="text-xs text-slate-400 leading-relaxed mb-6">
+            {language === "km"
+              ? "គេហទំព័រនេះសម្រាប់តែសមាជិកគ្រួសារ និងបងប្អូនជីដូនមួយប៉ុណ្ណោះ។ មិនទាមទារពាក្យសម្ងាត់ទេ ប្រព័ន្ធកំពុងនាំលោកអ្នកទៅកាន់មែកធាងគ្រួសារដោយស្វ័យប្រវត្តិ។"
+              : "This space is dedicated exclusively to our family and relatives. No password needed, redirecting directly to the family tree."}
+          </p>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                {t.auth.passwordLabel}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] transition-all"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 rounded-xl font-medium text-sm text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 transition-all shadow-md shadow-[#d4af37]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <span>{t.auth.loading}</span>
-              ) : (
-                <>
-                  <span>{t.auth.signInBtn}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-slate-800/80 text-center">
-            <p className="text-xs text-slate-400">
-              {language === "km" ? "មិនទាន់មានគណនី? " : "Don't have an account yet? "}
-              <Link
-                href="/register"
-                className="text-[#d4af37] font-medium hover:underline ml-1"
-              >
-                {language === "km" ? "ចូលរួមតាមរយៈលិខិតអញ្ជើញ" : "Join via Invitation Link"}
-              </Link>
-            </p>
+          <div className="flex justify-center items-center gap-2 mb-6 text-sm text-[#d4af37]">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-xs font-medium">
+              {language === "km" ? "កំពុងរៀបចំការតភ្ជាប់..." : "Connecting..."}
+            </span>
           </div>
-        </div>
 
-        <div className="mt-6 text-center text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-          {t.auth.invitationOnlyNotice}
+          <Link
+            href="/dashboard"
+            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] text-slate-950 text-xs font-semibold hover:opacity-95 transition-all shadow-md shadow-[#d4af37]/20"
+          >
+            <span>{language === "km" ? "ចូលទៅកាន់ដែនគ្រួសារឥឡូវនេះ" : "Open Family Space Now"}</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
 
-      <footer className="text-center text-[11px] text-slate-600 py-2">
-        &copy; 2026 {t.appName}. {t.heritage.honorAncestors}
-      </footer>
+      {/* Footer */}
+      <div className="max-w-7xl w-full mx-auto text-center text-xs text-slate-400">
+        <p>
+          {t.heritage.sacredBonds} • {t.appSubtitle}
+        </p>
+      </div>
     </div>
   );
 }
@@ -208,12 +115,12 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0c0f14] flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen bg-[#0c0f14] flex items-center justify-center text-[#d4af37]">
+          <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       }
     >
-      <LoginForm />
+      <LoginRedirectContent />
     </Suspense>
   );
 }

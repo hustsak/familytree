@@ -33,11 +33,11 @@ export function Navigation({ userEmail, activeSpaceId, activeSpaceName }: Naviga
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.push("/login");
-      router.refresh();
-    } catch (e) {
-      console.error("Sign out error", e);
+    } catch {
+      // offline
     }
+    router.push("/");
+    router.refresh();
   };
 
   const navLinks = [
@@ -168,10 +168,10 @@ export function Navigation({ userEmail, activeSpaceId, activeSpaceName }: Naviga
               </div>
             ) : (
               <Link
-                href="/login"
-                className="text-xs px-3.5 py-2 rounded-lg font-medium text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-colors"
+                href="/dashboard"
+                className="text-xs px-3.5 py-2 rounded-lg font-medium text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-colors font-khmer"
               >
-                {t.nav.signIn}
+                {language === "km" ? "ដែនគ្រួសារ" : "Family Space"}
               </Link>
             )}
 

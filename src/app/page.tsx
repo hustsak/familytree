@@ -71,10 +71,10 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/login"
+              href="/dashboard"
               className="text-xs px-4 py-2 rounded-lg font-semibold text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all shadow-sm shadow-[#d4af37]/20 font-khmer"
             >
-              {t.nav.signIn}
+              {language === "km" ? "ដែនគ្រួសារ" : "Family Space"}
             </Link>
           </div>
         </div>
@@ -100,10 +100,10 @@ export default function HomePage() {
 
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-20 font-khmer">
           <Link
-            href="/login"
+            href="/dashboard"
             className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 shadow-lg shadow-[#d4af37]/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>{t.nav.signIn}</span>
+            <span>{language === "km" ? "ចូលទៅកាន់ដែនគ្រួសារ" : "Enter Family Space"}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link

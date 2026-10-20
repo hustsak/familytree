@@ -39,20 +39,8 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect private routes
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login") ||
-                      request.nextUrl.pathname.startsWith("/register");
-  const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard") ||
-                          request.nextUrl.pathname.startsWith("/spaces");
-
-  if (!user && isProtectedRoute && !process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("placeholder")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectedFrom", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (user && isAuthRoute) {
+  // Direct access: Redirect any visits to /login directly to /dashboard
+  if (request.nextUrl.pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

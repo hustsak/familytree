@@ -106,10 +106,10 @@ export default function RegisterPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/login"
+              href="/dashboard"
               className="w-full sm:w-auto px-6 py-3 rounded-xl font-semibold text-xs text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 transition-all flex items-center justify-center gap-2 shadow-md shadow-[#d4af37]/20"
             >
-              <span>{t.nav.signIn}</span>
+              <span>{language === "km" ? "ចូលទៅកាន់ដែនគ្រួសារ" : "Enter Family Space"}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
