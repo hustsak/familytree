@@ -57,7 +57,13 @@ export default function RegisterPage() {
       }
     } catch (err: unknown) {
       const e = err as Error;
-      setErrorMsg(e.message || "An unexpected error occurred during registration.");
+      if (e.message?.includes("fetch") || e.message === "Failed to fetch") {
+        setErrorMsg(
+          "Unable to connect to Supabase authentication (Failed to fetch). Please configure valid NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
+        );
+      } else {
+        setErrorMsg(e.message || "An unexpected error occurred during registration.");
+      }
       setLoading(false);
     }
   };

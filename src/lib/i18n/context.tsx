@@ -26,15 +26,21 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return "en";
   });
 
-  const setLanguage = (lang: SupportedLanguage) => {
-    setLanguageState(lang);
+  React.useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("preferred_lang", lang);
-      if (lang === "km") {
+      document.documentElement.lang = language;
+      if (language === "km") {
         document.documentElement.classList.add("font-khmer");
       } else {
         document.documentElement.classList.remove("font-khmer");
       }
+    }
+  }, [language]);
+
+  const setLanguage = (lang: SupportedLanguage) => {
+    setLanguageState(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("preferred_lang", lang);
     }
   };
 

@@ -62,13 +62,14 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadUserAndSpaces() {
       try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          setUserEmail(user.email ?? null);
+        try {
+          const supabase = createClient();
+          const { data } = await supabase.auth.getUser();
+          if (data?.user) {
+            setUserEmail(data.user.email ?? null);
+          }
+        } catch {
+          // Ignore offline / placeholder auth error
         }
 
         const res = await fetch("/api/spaces");

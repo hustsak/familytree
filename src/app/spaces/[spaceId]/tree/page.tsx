@@ -703,7 +703,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
 
         {/* Selected Person Profile Drawer */}
         {(activeProfile || profileLoading) && (
-          <div className="absolute top-4 right-4 bottom-4 w-full max-w-sm heritage-card-elevated p-5 sm:p-6 z-40 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right-4 duration-200">
+          <div className="absolute top-2 bottom-2 left-2 right-2 sm:left-auto sm:top-4 sm:right-4 sm:bottom-4 sm:w-96 heritage-card-elevated p-5 sm:p-6 z-40 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right-4 duration-200">
             {profileLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
                 <div className="w-8 h-8 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin mb-3" />

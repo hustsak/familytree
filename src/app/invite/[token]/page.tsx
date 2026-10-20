@@ -42,12 +42,15 @@ function InviteAcceptContent({ token }: { token: string }) {
   useEffect(() => {
     async function checkAuthAndInvite() {
       try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        setIsLoggedIn(!!user);
+        let hasUser = false;
+        try {
+          const supabase = createClient();
+          const { data } = await supabase.auth.getUser();
+          hasUser = !!data?.user;
+        } catch {
+          hasUser = false;
+        }
+        setIsLoggedIn(hasUser);
 
         const res = await fetch(`/api/invitations/${token}`);
         const data = await res.json();
