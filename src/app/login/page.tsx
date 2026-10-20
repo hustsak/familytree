@@ -54,7 +54,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0c0f14] heritage-bg-pattern flex flex-col justify-between p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0c0f14] heritage-bg-pattern flex flex-col justify-between p-4 sm:p-6 lg:p-8 font-khmer">
       {/* Top Header Bar */}
       <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
@@ -181,12 +181,12 @@ function LoginForm() {
 
           <div className="mt-8 pt-6 border-t border-slate-800/80 text-center">
             <p className="text-xs text-slate-400">
-              {t.auth.dontHaveAccount}{" "}
+              {language === "km" ? "មិនទាន់មានគណនី? " : "Don't have an account yet? "}
               <Link
                 href="/register"
                 className="text-[#d4af37] font-medium hover:underline ml-1"
               >
-                {t.auth.signUpBtn}
+                {language === "km" ? "ចូលរួមតាមរយៈលិខិតអញ្ជើញ" : "Join via Invitation Link"}
               </Link>
             </p>
           </div>

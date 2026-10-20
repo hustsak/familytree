@@ -9,6 +9,21 @@ export async function GET(
     const { token } = await params;
     const invitation = await validateInvitationToken(token);
 
+    let suggestedPerson: { id: string; name: string; khmerName?: string | null } | null = null;
+    if (invitation.suggestedPersonId) {
+      const person = await (await import("@/lib/prisma")).prisma.person.findFirst({
+        where: { id: invitation.suggestedPersonId, spaceId: invitation.spaceId },
+        select: { id: true, firstName: true, lastName: true, khmerName: true },
+      });
+      if (person) {
+        suggestedPerson = {
+          id: person.id,
+          name: `${person.firstName} ${person.lastName}`,
+          khmerName: person.khmerName,
+        };
+      }
+    }
+
     return NextResponse.json({
       valid: true,
       invitation: {
@@ -22,6 +37,7 @@ export async function GET(
           description: invitation.space.description,
         },
         inviterName: invitation.invitedBy.fullName,
+        suggestedPerson,
       },
     });
   } catch (error: unknown) {

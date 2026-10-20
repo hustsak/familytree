@@ -8,12 +8,12 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Scroll,
   ShieldCheck,
-  Crown,
-  Users2,
-  Calendar,
+  TreePine,
   ArrowRight,
   AlertCircle,
   Lock,
+  Sparkles,
+  GitBranch,
 } from "lucide-react";
 
 interface InviteData {
@@ -27,6 +27,11 @@ interface InviteData {
     description: string | null;
   };
   inviterName: string;
+  suggestedPerson?: {
+    id: string;
+    name: string;
+    khmerName?: string | null;
+  } | null;
 }
 
 function InviteAcceptContent({ token }: { token: string }) {
@@ -37,7 +42,14 @@ function InviteAcceptContent({ token }: { token: string }) {
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [accepting, setAccepting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Simple joining form fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [khmerName, setKhmerName] = useState("");
+  const [password, setPassword] = useState("");
+  const [hasExistingAccount, setHasExistingAccount] = useState(false);
 
   useEffect(() => {
     async function checkAuthAndInvite() {
@@ -47,6 +59,15 @@ function InviteAcceptContent({ token }: { token: string }) {
           const supabase = createClient();
           const { data } = await supabase.auth.getUser();
           hasUser = !!data?.user;
+          if (data?.user?.user_metadata?.full_name) {
+            const parts = (data.user.user_metadata.full_name as string).split(" ");
+            if (parts.length > 1) {
+              setLastName(parts[0]);
+              setFirstName(parts.slice(1).join(" "));
+            } else {
+              setFirstName(data.user.user_metadata.full_name as string);
+            }
+          }
         } catch {
           hasUser = false;
         }
@@ -70,35 +91,121 @@ function InviteAcceptContent({ token }: { token: string }) {
     checkAuthAndInvite();
   }, [token, t.invitations.invalidSubtitle]);
 
-  const handleAccept = async () => {
-    if (!isLoggedIn) {
-      router.push(`/login?redirectedFrom=/invite/${token}`);
+  // Handle Simple Join Form Submission
+  const handleJoinFamily = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    const cleanFirst = firstName.trim();
+    const cleanLast = lastName.trim();
+
+    if (!cleanFirst || !cleanLast) {
+      setErrorMsg(
+        language === "km"
+          ? "សូមបញ្ចូលនាមត្រកូល និងនាមខ្លួនពិតរបស់អ្នក។"
+          : "Please enter your real first and last name."
+      );
       return;
     }
 
-    setAccepting(true);
-    setErrorMsg(null);
+    if (!isLoggedIn && password.length < 6) {
+      setErrorMsg(
+        language === "km"
+          ? "សូមបង្កើតពាក្យសម្ងាត់យ៉ាងតិច ៦ តួអក្សរដើម្បីការពារគណនីរបស់អ្នក។"
+          : "Please enter a password with at least 6 characters to secure your access."
+      );
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
+      const supabase = createClient();
+
+      // If not logged in, authenticate using the invitation email
+      if (!isLoggedIn && invite) {
+        if (hasExistingAccount) {
+          const { error: signInErr } = await supabase.auth.signInWithPassword({
+            email: invite.email,
+            password,
+          });
+          if (signInErr) {
+            throw new Error(signInErr.message);
+          }
+        } else {
+          const { error: signUpErr } = await supabase.auth.signUp({
+            email: invite.email,
+            password,
+            options: {
+              data: {
+                full_name: `${cleanLast} ${cleanFirst}`,
+              },
+            },
+          });
+          if (signUpErr) {
+            // If already registered, attempt sign-in
+            if (signUpErr.message.toLowerCase().includes("already registered")) {
+              const { error: retrySignInErr } = await supabase.auth.signInWithPassword({
+                email: invite.email,
+                password,
+              });
+              if (retrySignInErr) {
+                throw new Error(
+                  language === "km"
+                    ? "អ៊ីមែលនេះមានគណនីរួចហើយ។ សូមបញ្ចូលពាក្យសម្ងាត់ត្រឹមត្រូវ។"
+                    : "This email already has an account. Please enter the correct password."
+                );
+              }
+            } else {
+              throw new Error(signUpErr.message);
+            }
+          }
+        }
+      }
+
+      // Accept the invitation with real name details
       const res = await fetch(`/api/invitations/${token}/accept`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personDetails: {
+            firstName: cleanFirst,
+            lastName: cleanLast,
+            khmerName: khmerName.trim() || undefined,
+          },
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to accept invitation");
+        throw new Error(data.error || "Failed to join family space.");
       }
 
-      router.push(`/spaces/${data.space.id}/onboarding`);
+      // Open family tree immediately!
+      const targetPersonId = data.personId;
+      const targetUrl = targetPersonId
+        ? `/spaces/${data.spaceId || invite?.space.id}/tree?focusPersonId=${encodeURIComponent(targetPersonId)}`
+        : `/spaces/${data.spaceId || invite?.space.id}/tree`;
+
+      router.push(targetUrl);
+      router.refresh();
     } catch (err: unknown) {
       const e = err as Error;
-      setErrorMsg(e.message);
-      setAccepting(false);
+      if (e.message?.includes("fetch") || e.message === "Failed to fetch") {
+        setErrorMsg(
+          language === "km"
+            ? "មិនអាចតភ្ជាប់ទៅសេវាផ្ទៀងផ្ទាត់បានទេ។ សូមពិនិត្យការកំណត់ក្នុង .env.local។"
+            : "Unable to connect to authentication service. Please check .env.local configuration."
+        );
+      } else {
+        setErrorMsg(e.message || "An unexpected error occurred while joining.");
+      }
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0c0f14] heritage-bg-pattern flex flex-col justify-between p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0c0f14] heritage-bg-pattern flex flex-col justify-between p-4 sm:p-6 lg:p-8 font-khmer">
       {/* Top Header */}
       <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
@@ -121,17 +228,6 @@ function InviteAcceptContent({ token }: { token: string }) {
         <div className="flex items-center bg-slate-900/90 rounded-lg p-1 border border-slate-700/60">
           <button
             type="button"
-            onClick={() => setLanguage("en")}
-            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-              language === "en"
-                ? "bg-[#d4af37] text-slate-950 font-semibold"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            English
-          </button>
-          <button
-            type="button"
             onClick={() => setLanguage("km")}
             className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
               language === "km"
@@ -141,195 +237,238 @@ function InviteAcceptContent({ token }: { token: string }) {
           >
             ភាសាខ្មែរ
           </button>
+          <button
+            type="button"
+            onClick={() => setLanguage("en")}
+            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+              language === "en"
+                ? "bg-[#d4af37] text-slate-950 font-semibold"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            English
+          </button>
         </div>
       </div>
 
-      {/* Main Invitation Card */}
-      <div className="w-full max-w-lg mx-auto my-8">
-        <div className="heritage-card-elevated p-8 sm:p-10 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent" />
-
-          {loading ? (
-            <div className="py-16 text-center">
-              <div className="w-10 h-10 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-xs text-slate-400">{t.auth.loading}</p>
+      {/* Main Join Container */}
+      <div className="w-full max-w-lg mx-auto my-6 sm:my-10">
+        {loading ? (
+          <div className="heritage-card p-12 text-center">
+            <div className="w-10 h-10 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-xs text-slate-400">
+              {language === "km"
+                ? "កំពុងផ្ទៀងផ្ទាត់លិខិតអញ្ជើញ..."
+                : "Verifying private invitation..."}
+            </p>
+          </div>
+        ) : errorMsg && !invite ? (
+          <div className="heritage-card p-8 sm:p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-7 h-7" />
             </div>
-          ) : errorMsg && !invite ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-rose-400 flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="w-8 h-8" />
+            <h2 className="text-xl font-bold font-heritage text-white mb-2">
+              {t.invitations.invalidTitle}
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed mb-6">
+              {errorMsg}
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-xs text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all"
+            >
+              <span>{language === "km" ? "ត្រឡប់ទៅទំព័រដើម" : "Return to Home"}</span>
+            </Link>
+          </div>
+        ) : invite ? (
+          <div className="heritage-card-elevated p-6 sm:p-8 relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#d4af37] to-transparent" />
+
+            {/* Header: Family Space & Inviter */}
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] text-xs font-semibold mb-3">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{t.invitations.title}</span>
               </div>
-              <h2 className="text-xl font-bold font-heritage text-white mb-2">
-                {t.invitations.invalidTitle}
-              </h2>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto mb-6 leading-relaxed">
-                {errorMsg}
+
+              <h1 className="text-2xl sm:text-3xl font-bold font-heritage text-white tracking-tight mb-1">
+                {invite.space.name}
+              </h1>
+
+              <p className="text-xs text-slate-400">
+                {language === "km" ? "អញ្ជើញដោយ៖" : "Invited by:"}{" "}
+                <span className="text-slate-200 font-semibold">{invite.inviterName}</span>
               </p>
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all"
-              >
-                Return to Sanctuary
-              </Link>
             </div>
-          ) : invite ? (
-            <div>
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] mb-4">
-                  <ShieldCheck className="w-7 h-7" />
-                </div>
-                <h1 className="text-2xl font-bold font-heritage tracking-tight text-white mb-2">
-                  {t.invitations.title}
-                </h1>
-                <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
-                  {t.invitations.subtitle}
-                </p>
-              </div>
 
-              {errorMsg && (
-                <div className="mb-6 p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 flex items-start gap-3 text-rose-200 text-xs">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  <span>{errorMsg}</span>
+            {/* Obvious Branch Banner (if specified by inviter) */}
+            {invite.suggestedPerson ? (
+              <div className="mb-6 p-4 rounded-xl bg-[#d4af37]/10 border border-[#d4af37]/40 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#d4af37]/20 text-[#d4af37] flex items-center justify-center shrink-0">
+                  <GitBranch className="w-5 h-5" />
                 </div>
-              )}
-
-              {/* Onboarding Journey Flow Banner */}
-              <div className="mb-6 p-4 rounded-xl bg-slate-950/70 border border-[#d4af37]/25 text-xs">
-                <span className="text-[10px] text-[#d4af37] uppercase tracking-wider font-semibold block mb-2 text-center">
-                  {language === "km" ? "ដំណើរការចូលរួមគ្រួសារ ៦ ជំហានងាយៗ" : "6-Step Easy Family Onboarding"}
-                </span>
-                <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400 overflow-x-auto pb-1">
-                  <div className="flex flex-col items-center shrink-0 text-[#d4af37] font-semibold">
-                    <span className="w-5 h-5 rounded-full bg-[#d4af37] text-slate-950 flex items-center justify-center text-[10px] mb-1">1</span>
-                    <span>{language === "km" ? "បើកតំណ" : "Invite"}</span>
-                  </div>
-                  <span className="text-slate-600">→</span>
-                  <div className="flex flex-col items-center shrink-0">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">2</span>
-                    <span>{language === "km" ? "ចូលគណនី" : "Sign In"}</span>
-                  </div>
-                  <span className="text-slate-600">→</span>
-                  <div className="flex flex-col items-center shrink-0">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">3</span>
-                    <span>{language === "km" ? "ឈ្មោះពិត" : "Real Name"}</span>
-                  </div>
-                  <span className="text-slate-600">→</span>
-                  <div className="flex flex-col items-center shrink-0">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">4</span>
-                    <span>{language === "km" ? "រើសឪពុកម្តាយ" : "Parent"}</span>
-                  </div>
-                  <span className="text-slate-600">→</span>
-                  <div className="flex flex-col items-center shrink-0">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">5</span>
-                    <span>{language === "km" ? "បញ្ជាក់សាខា" : "Branch"}</span>
-                  </div>
-                  <span className="text-slate-600">→</span>
-                  <div className="flex flex-col items-center shrink-0">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">6</span>
-                    <span>{language === "km" ? "ដើមឈើ" : "Tree"}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Family Sanctuary Preview Card */}
-              <div className="p-5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-4 mb-8">
                 <div>
-                  <span className="text-[11px] text-[#d4af37] uppercase tracking-wider font-semibold block mb-1">
-                    {language === "km" ? "ជម្រកគ្រួសារដែលអ្នកកំពុងចូលរួម" : "Family Sanctuary You Are Joining"}
+                  <span className="text-[10px] uppercase font-bold text-[#d4af37] tracking-wider block">
+                    {language === "km" ? "សាខាគ្រួសារផ្ទៀងផ្ទាត់រួច" : "Verified Family Branch"}
                   </span>
-                  <h3 className="text-xl font-bold font-heritage text-white">
-                    {invite.space.name}
-                  </h3>
-                  {invite.space.description && (
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      {invite.space.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-800/80 text-xs text-slate-300">
-                  <div>
-                    <span className="text-slate-500 block text-[10px] mb-0.5">
-                      {language === "km" ? "អញ្ជើញដោយសាច់ញាតិ" : t.invitations.invitedBy}
-                    </span>
-                    <span className="font-semibold text-slate-100 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#d4af37]" />
-                      {invite.inviterName}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-slate-500 block text-[10px] mb-0.5">
-                      {t.invitations.roleOffered}
-                    </span>
-                    <span className="inline-flex items-center gap-1 font-medium text-[#d4af37]">
-                      {invite.role === "ADMIN" ? (
-                        <>
-                          <Crown className="w-3.5 h-3.5" />
-                          <span>Admin Guardian</span>
-                        </>
-                      ) : (
-                        <>
-                          <Users2 className="w-3.5 h-3.5" />
-                          <span>Family Member</span>
-                        </>
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {t.invitations.expiresIn}{" "}
-                    {new Date(invite.expiresAt).toLocaleDateString()}
+                  <span className="text-xs font-semibold text-white block">
+                    {language === "km"
+                      ? `កូនរបស់៖ ${invite.suggestedPerson.name}`
+                      : `Connecting as child of: ${invite.suggestedPerson.name}`}
+                    {invite.suggestedPerson.khmerName && (
+                      <span className="text-slate-300 ml-1">
+                        ({invite.suggestedPerson.khmerName})
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
+            ) : (
+              <div className="mb-6 p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center gap-2.5 text-xs text-slate-400">
+                <ShieldCheck className="w-4 h-4 text-[#d4af37] shrink-0" />
+                <span>
+                  {language === "km"
+                    ? "ចូលរួមរួច អ្នកគ្រប់គ្រងគ្រួសារនឹងភ្ជាប់អ្នកទៅកាន់មែកធាងពិតប្រាកដ។"
+                    : "After joining, the family admin will verify and link your exact branch."}
+                </span>
+              </div>
+            )}
 
-              {/* Action */}
-              {isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={handleAccept}
-                  disabled={accepting}
-                  className="w-full py-3.5 px-4 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 transition-all shadow-md shadow-[#d4af37]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {accepting ? (
-                    <span>{t.auth.loading}</span>
-                  ) : (
-                    <>
-                      <span>{t.invitations.acceptBtn}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <Link
-                    href={`/register?redirectedFrom=/invite/${token}`}
-                    className="w-full py-3.5 px-4 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 transition-all shadow-md shadow-[#d4af37]/20 flex items-center justify-center gap-2"
-                  >
-                    <span>Create Account & Accept</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    href={`/login?redirectedFrom=/invite/${token}`}
-                    className="w-full py-2.5 px-4 rounded-xl font-medium text-xs text-slate-300 hover:text-white bg-slate-900 border border-slate-700/80 transition-all flex items-center justify-center"
-                  >
-                    Already have an account? Sign In
-                  </Link>
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="mb-6 p-3.5 rounded-xl bg-rose-950/40 border border-rose-800 flex items-start gap-2.5 text-rose-200 text-xs">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* 1-Step Form: Real Name & Join */}
+            <form onSubmit={handleJoinFamily} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    {language === "km" ? "នាមត្រកូល *" : "Last Name *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder={language === "km" ? "ឧ. សុខ" : "e.g. Chan"}
+                    className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    {language === "km" ? "នាមខ្លួន *" : "First Name *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder={language === "km" ? "ឧ. វីរៈ" : "e.g. Vireak"}
+                    className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  {language === "km" ? "ឈ្មោះជាភាសាខ្មែរ (ស្រេចចិត្ត)" : "Khmer Name (Optional)"}
+                </label>
+                <input
+                  type="text"
+                  value={khmerName}
+                  onChange={(e) => setKhmerName(e.target.value)}
+                  placeholder={language === "km" ? "ឧ. ចាន់ វីរៈ" : "e.g. ចាន់ វីរៈ"}
+                  className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+
+              {/* Account Credentials if guest */}
+              {!isLoggedIn && (
+                <div className="pt-2 border-t border-slate-800/80 space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      {language === "km" ? "អាសយដ្ឋានអ៊ីមែលអញ្ជើញ" : "Invited Email"}
+                    </label>
+                    <input
+                      type="email"
+                      readOnly
+                      disabled
+                      value={invite.email}
+                      className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-slate-300">
+                        {hasExistingAccount
+                          ? language === "km" ? "ពាក្យសម្ងាត់របស់អ្នក" : "Your Password"
+                          : language === "km" ? "បង្កើតពាក្យសម្ងាត់ (យ៉ាងតិច ៦ តួ) *" : "Create Password (Min 6 chars) *"}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setHasExistingAccount(!hasExistingAccount)}
+                        className="text-[11px] text-[#d4af37] hover:underline"
+                      >
+                        {hasExistingAccount
+                          ? language === "km" ? "បង្កើតគណនីថ្មី?" : "Create new account?"
+                          : language === "km" ? "មានគណនីរួចហើយ?" : "Already have account?"}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                        <Lock className="w-3.5 h-3.5" />
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-          ) : null}
-        </div>
 
-        {/* Private Notice */}
-        <div className="mt-6 text-center text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed flex items-center justify-center gap-1.5">
-          <Lock className="w-3.5 h-3.5 text-emerald-500" />
-          <span>{t.auth.invitationOnlyNotice}</span>
-        </div>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full mt-4 py-3.5 px-6 rounded-xl font-semibold text-xs text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 transition-all shadow-lg shadow-[#d4af37]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {submitting ? (
+                  <span>
+                    {language === "km" ? "កំពុងចូលរួម..." : "Joining Family..."}
+                  </span>
+                ) : (
+                  <>
+                    <TreePine className="w-4 h-4" />
+                    <span>
+                      {language === "km" ? "ចូលរួមពង្សាវតារគ្រួសារ" : "Join Family Tree"}
+                    </span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 pt-4 border-t border-slate-800/80 text-center text-[11px] text-slate-500">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37] inline mr-1" />
+              <span>
+                {language === "km"
+                  ? "លិខិតអញ្ជើញនេះមានសុពលភាពសម្រាប់ប្រើតែម្តងគត់ និងការពារដោយសុវត្ថិភាព។"
+                  : "This invitation is single-use and cryptographically secured."}
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <footer className="text-center text-[11px] text-slate-600 py-2">
@@ -344,7 +483,7 @@ function InviteParamResolver({ params }: { params: Promise<{ token: string }> })
   return <InviteAcceptContent token={token} />;
 }
 
-export default function InviteAcceptPage({
+export default function InvitePage({
   params,
 }: {
   params: Promise<{ token: string }>;

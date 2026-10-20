@@ -1,6 +1,15 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { Role, InvitationStatus, MemberStatus } from "@prisma/client";
+import {
+  Role,
+  InvitationStatus,
+  MemberStatus,
+  Gender,
+  RelationType,
+  RelationStatus,
+  ConfidenceLevel,
+  RequestStatus,
+} from "@prisma/client";
 import { recordAuditLog, AuthorizationError } from "@/lib/auth";
 
 export interface CreateInviteInput {
@@ -242,11 +251,26 @@ export async function validateInvitationToken(token: string) {
   return invitation;
 }
 
+export interface AcceptPersonDetails {
+  firstName: string;
+  lastName: string;
+  khmerName?: string | null;
+  gender?: Gender;
+  birthYear?: number | null;
+}
+
 /**
  * Accepts an invitation and establishes membership in the private family space.
- * Enforces single-use token invalidation and audit logging inside a transaction.
+ * If person details are provided:
+ * - If an obvious parent branch is set on the invitation (suggestedPersonId), connects directly as CONFIRMED.
+ * - If uncertain, creates the person and queues a ConnectionRequest for family admin approval.
+ * Enforces single-use token invalidation and audit logging inside an atomic transaction.
  */
-export async function acceptInvitation(token: string, userId: string) {
+export async function acceptInvitation(
+  token: string,
+  userId: string,
+  personDetails?: AcceptPersonDetails
+) {
   const invitation = await validateInvitationToken(token);
 
   const user = await prisma.user.findUnique({
@@ -279,7 +303,7 @@ export async function acceptInvitation(token: string, userId: string) {
     });
 
     // Upsert membership (in case a pending membership existed)
-    const membership = await tx.spaceMember.upsert({
+    let membership = await tx.spaceMember.upsert({
       where: {
         spaceId_userId: {
           spaceId: invitation.spaceId,
@@ -299,7 +323,114 @@ export async function acceptInvitation(token: string, userId: string) {
       },
     });
 
-    return { membership, space: invitation.space };
+    let personId: string | undefined = membership.personId || undefined;
+
+    // If real name details are provided, immediately weave person into the tree
+    if (personDetails && personDetails.firstName?.trim() && personDetails.lastName?.trim()) {
+      const cleanFirstName = personDetails.firstName.trim();
+      const cleanLastName = personDetails.lastName.trim();
+      const cleanKhmerName = personDetails.khmerName?.trim() || null;
+
+      // Update user full name if empty or generic
+      if (!user.fullName || user.fullName === "Family Relative") {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { fullName: `${cleanFirstName} ${cleanLastName}` },
+        });
+      }
+
+      if (!membership.personId) {
+        // If invitation has a suggestedPersonId (preset parent / obvious branch)
+        if (invitation.suggestedPersonId) {
+          const anchor = await tx.person.findFirst({
+            where: { id: invitation.suggestedPersonId, spaceId: invitation.spaceId },
+          });
+
+          if (anchor) {
+            // Create confirmed relative node
+            const newPerson = await tx.person.create({
+              data: {
+                spaceId: invitation.spaceId,
+                firstName: cleanFirstName,
+                lastName: cleanLastName,
+                khmerName: cleanKhmerName,
+                gender: personDetails.gender || Gender.UNKNOWN,
+                birthYear: personDetails.birthYear || null,
+                isLiving: true,
+                isVerified: true,
+                createdById: user.id,
+              },
+            });
+
+            personId = newPerson.id;
+
+            // Direct verified parent-child relationship
+            await tx.relationship.create({
+              data: {
+                spaceId: invitation.spaceId,
+                personId: anchor.id,
+                relatedPersonId: newPerson.id,
+                type: RelationType.PARENT_CHILD,
+                status: RelationStatus.CONFIRMED,
+                confidence: ConfidenceLevel.DIRECT,
+                createdById: user.id,
+              },
+            });
+
+            // Link person to space membership
+            membership = await tx.spaceMember.update({
+              where: { id: membership.id },
+              data: { personId: newPerson.id },
+            });
+          }
+        }
+
+        // If no preset anchor on invitation: create person and queue for admin approval
+        if (!personId) {
+          const newPerson = await tx.person.create({
+            data: {
+              spaceId: invitation.spaceId,
+              firstName: cleanFirstName,
+              lastName: cleanLastName,
+              khmerName: cleanKhmerName,
+              gender: personDetails.gender || Gender.UNKNOWN,
+              birthYear: personDetails.birthYear || null,
+              isLiving: true,
+              isVerified: false,
+              createdById: user.id,
+            },
+          });
+
+          personId = newPerson.id;
+
+          // Link person to space membership
+          membership = await tx.spaceMember.update({
+            where: { id: membership.id },
+            data: { personId: newPerson.id },
+          });
+
+          // Queue connection request for admin/council to approve exact parent
+          await tx.connectionRequest.create({
+            data: {
+              spaceId: invitation.spaceId,
+              userId: user.id,
+              proposedPersonData: {
+                personId: newPerson.id,
+                firstName: cleanFirstName,
+                lastName: cleanLastName,
+                khmerName: cleanKhmerName,
+              },
+              anchorPersonId: newPerson.id,
+              relationType: "NEW_RELATIVE_APPROVAL",
+              status: RequestStatus.PENDING,
+              adminNotes: "Joined via private invitation without preset parent. Awaiting family admin branch approval.",
+            },
+          });
+        }
+      }
+    }
+
+    return { membership, space: invitation.space, personId };
   });
 
   await recordAuditLog({

@@ -64,17 +64,17 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/login"
-              className="text-xs px-3.5 py-2 rounded-lg font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              href="/register"
+              className="text-xs px-3.5 py-2 rounded-lg font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors font-khmer"
             >
-              {t.nav.signIn}
+              {language === "km" ? "លិខិតអញ្ជើញ" : "Invitations"}
             </Link>
 
             <Link
-              href="/register"
-              className="text-xs px-4 py-2 rounded-lg font-semibold text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all shadow-sm shadow-[#d4af37]/20"
+              href="/login"
+              className="text-xs px-4 py-2 rounded-lg font-semibold text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all shadow-sm shadow-[#d4af37]/20 font-khmer"
             >
-              {t.nav.register}
+              {t.nav.signIn}
             </Link>
           </div>
         </div>
@@ -98,19 +98,19 @@ export default function HomePage() {
           {t.tagline}
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 mb-20">
+        <div className="flex flex-col sm:flex-row items-center gap-4 mb-20 font-khmer">
           <Link
-            href="/register"
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 shadow-lg shadow-[#d4af37]/25 transition-all flex items-center justify-center gap-2"
+            href="/login"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 shadow-lg shadow-[#d4af37]/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>{t.spaces.createSpace}</span>
+            <span>{t.nav.signIn}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
-            href="/login"
-            className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-medium text-sm text-slate-200 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-all"
+            href="/register"
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-medium text-sm text-slate-200 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-all text-center"
           >
-            {t.nav.signIn}
+            {language === "km" ? "ចូលរួមតាមរយៈលិខិតអញ្ជើញ" : "Join via Invitation"}
           </Link>
         </div>
 

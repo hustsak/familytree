@@ -10,12 +10,15 @@ export async function POST(
     const { token } = await params;
     const user = await requireAuth();
 
-    const result = await acceptInvitation(token, user.id);
+    const body = await req.json().catch(() => ({}));
+    const result = await acceptInvitation(token, user.id, body.personDetails);
 
     return NextResponse.json({
       success: true,
       membership: result.membership,
       space: result.space,
+      spaceId: result.space.id,
+      personId: result.personId,
     });
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string; code?: string };

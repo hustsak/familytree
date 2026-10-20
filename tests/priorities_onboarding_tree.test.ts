@@ -143,4 +143,37 @@ describe("Priorities: One-Tap Onboarding & Visual Family Tree", () => {
     assert.deepStrictEqual(layout.edges, []);
     assert.deepStrictEqual(layout.generationCounts, {});
   });
+
+  it("resolves obvious branch when invitation specifies preset parent", () => {
+    interface MockInvite {
+      suggestedPersonId?: string | null;
+    }
+
+    function resolveInviteBranch(invite: MockInvite, knownPeople: { id: string; name: string }[]) {
+      if (invite.suggestedPersonId) {
+        const parent = knownPeople.find((p) => p.id === invite.suggestedPersonId);
+        if (parent) {
+          return { status: "CONFIRMED", parentId: parent.id, needsAdminApproval: false };
+        }
+      }
+      return { status: "PENDING_APPROVAL", parentId: null, needsAdminApproval: true };
+    }
+
+    const people = [
+      { id: "parent_1", name: "Chan Sok" },
+      { id: "parent_2", name: "Keo Bopha" },
+    ];
+
+    // Case 1: Obvious branch preset on invitation
+    const obviousResult = resolveInviteBranch({ suggestedPersonId: "parent_1" }, people);
+    assert.strictEqual(obviousResult.status, "CONFIRMED");
+    assert.strictEqual(obviousResult.parentId, "parent_1");
+    assert.strictEqual(obviousResult.needsAdminApproval, false);
+
+    // Case 2: Uncertain branch (no preset parent) -> queues for admin approval rather than guessing
+    const uncertainResult = resolveInviteBranch({ suggestedPersonId: null }, people);
+    assert.strictEqual(uncertainResult.status, "PENDING_APPROVAL");
+    assert.strictEqual(uncertainResult.parentId, null);
+    assert.strictEqual(uncertainResult.needsAdminApproval, true);
+  });
 });
