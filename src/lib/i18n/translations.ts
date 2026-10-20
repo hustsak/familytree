@@ -99,6 +99,39 @@ export interface Translations {
     clarificationPrompt: string;
     duplicateWarningTitle: string;
   };
+  adminDashboard: {
+    title: string;
+    subtitle: string;
+    tabRequests: string;
+    tabAudit: string;
+    statusFilterAll: string;
+    statusFilterPending: string;
+    statusFilterClarification: string;
+    statusFilterApproved: string;
+    statusFilterRejected: string;
+    noRequestsTitle: string;
+    noRequestsDesc: string;
+    requestedBy: string;
+    proposedPerson: string;
+    targetAnchor: string;
+    relationType: string;
+    submittedOn: string;
+    duplicateWarning: string;
+    reviewModalTitle: string;
+    reviewDecisionPrompt: string;
+    approveBtn: string;
+    rejectBtn: string;
+    clarifyBtn: string;
+    adminNotesPlaceholder: string;
+    resolutionActionLabel: string;
+    actionCreateNew: string;
+    actionLinkExisting: string;
+    explicitParentLabel: string;
+    auditTrailTitle: string;
+    auditAction: string;
+    auditActor: string;
+    auditTime: string;
+  };
   heritage: {
     sacredBonds: string;
     preserveLegacy: string;
@@ -208,6 +241,39 @@ export const translations: Record<SupportedLanguage, Translations> = {
       clarificationPrompt: "Multiple branches were detected. Please specify your exact parent to prevent guessing relationships:",
       duplicateWarningTitle: "Potential Duplicate Relative Detected",
     },
+    adminDashboard: {
+      title: "Family Council & Lineage Approvals",
+      subtitle: "Review incoming relative connection requests, clarify ambiguous branches, and protect genealogical accuracy.",
+      tabRequests: "Connection Queue",
+      tabAudit: "Lineage Audit Trail",
+      statusFilterAll: "All Requests",
+      statusFilterPending: "Pending Review",
+      statusFilterClarification: "Clarification Needed",
+      statusFilterApproved: "Approved",
+      statusFilterRejected: "Rejected",
+      noRequestsTitle: "No Connection Requests Found",
+      noRequestsDesc: "There are currently no connection requests matching the selected filter for this family space.",
+      requestedBy: "Requested By",
+      proposedPerson: "Proposed Relative",
+      targetAnchor: "Target Ancestral Anchor",
+      relationType: "Claimed Relationship",
+      submittedOn: "Submitted On",
+      duplicateWarning: "Duplicate Warning Flagged",
+      reviewModalTitle: "Council Review Decision",
+      reviewDecisionPrompt: "Select the council's decision regarding this lineage connection request:",
+      approveBtn: "Approve Connection",
+      rejectBtn: "Reject Connection",
+      clarifyBtn: "Request Clarification",
+      adminNotesPlaceholder: "Add optional council notes or instructions for the relative...",
+      resolutionActionLabel: "Duplicate Person Resolution",
+      actionCreateNew: "Create as distinct relative (confirmed separate individual)",
+      actionLinkExisting: "Link to existing relative profile in tree",
+      explicitParentLabel: "Specify Direct Parent ID (Required for multi-generation branches)",
+      auditTrailTitle: "Council Decisions & Lineage Audit Log",
+      auditAction: "Action Taken",
+      auditActor: "Council Member",
+      auditTime: "Date & Time",
+    },
     heritage: {
       sacredBonds: "Sacred Family Bonds",
       preserveLegacy: "Preserve every generation's name, story, and voice for posterity.",
@@ -314,6 +380,39 @@ export const translations: Record<SupportedLanguage, Translations> = {
       clarificationTitle: "ត្រូវការបញ្ជាក់មែកធាងគ្រួសារ",
       clarificationPrompt: "ប្រព័ន្ធបានរកឃើញមែកធាងច្រើន។ សូមជ្រើសរើសឪពុក ឬម្តាយពិតប្រាកដរបស់អ្នកដើម្បីជៀសវាងការស្មាន៖",
       duplicateWarningTitle: "រកឃើញឈ្មោះសាច់ញាតិស្រដៀងគ្នា",
+    },
+    adminDashboard: {
+      title: "ក្រុមប្រឹក្សាគ្រួសារ & ការអនុម័តខ្សែស្រឡាយ",
+      subtitle: "ពិនិត្យសំណើសុំតភ្ជាប់សាច់ញាតិ បញ្ជាក់មែកធាងដែលមិនច្បាស់លាស់ និងការពារភាពត្រឹមត្រូវនៃពង្សាវតារ។",
+      tabRequests: "បញ្ជីសំណើតភ្ជាប់",
+      tabAudit: "កំណត់ហេតុសវនកម្មខ្សែស្រឡាយ",
+      statusFilterAll: "សំណើទាំងអស់",
+      statusFilterPending: "រង់ចាំការពិនិត្យ",
+      statusFilterClarification: "ត្រូវការការបញ្ជាក់",
+      statusFilterApproved: "បានអនុម័ត",
+      statusFilterRejected: "បានបដិសេធ",
+      noRequestsTitle: "មិនមានសំណើតភ្ជាប់នៅឡើយទេ",
+      noRequestsDesc: "បច្ចុប្បន្នមិនមានសំណើតភ្ជាប់ណាមួយស្របតាមតម្រងដែលបានជ្រើសរើសសម្រាប់ដែនគ្រួសារនេះទេ។",
+      requestedBy: "ស្នើសុំដោយ",
+      proposedPerson: "សាច់ញាតិដែលបានស្នើសុំ",
+      targetAnchor: "បុព្វបុរសបង្គោល",
+      relationType: "ទំនាក់ទំនងដែលបានប្រកាស",
+      submittedOn: "កាលបរិច្ឆេទស្នើសុំ",
+      duplicateWarning: "ការព្រមានរកឃើញឈ្មោះស្រដៀងគ្នា",
+      reviewModalTitle: "ការសម្រេចចិត្តរបស់ក្រុមប្រឹក្សា",
+      reviewDecisionPrompt: "សូមជ្រើសរើសការសម្រេចចិត្តរបស់ក្រុមប្រឹក្សាគ្រួសារលើសំណើតភ្ជាប់នេះ៖",
+      approveBtn: "អនុម័តការតភ្ជាប់",
+      rejectBtn: "បដិសេធសំណើ",
+      clarifyBtn: "ស្នើសុំការបញ្ជាក់បន្ថែម",
+      adminNotesPlaceholder: "បន្ថែមចំណាំរបស់ក្រុមប្រឹក្សា ឬការណែនាំដល់សាច់ញាតិ...",
+      resolutionActionLabel: "ដំណោះស្រាយចំពោះឈ្មោះស្រដៀងគ្នា",
+      actionCreateNew: "បង្កើតជាសាច់ញាតិថ្មី (បញ្ជាក់ថាជាមនុស្សផ្សេងគ្នា)",
+      actionLinkExisting: "ភ្ជាប់ទៅកាន់ប្រវត្តិរូបសាច់ញាតិដែលមានស្រាប់ក្នុងដើមឈើ",
+      explicitParentLabel: "កំណត់លេខសម្គាល់ឪពុកម្តាយផ្ទាល់ (ចាំបាច់សម្រាប់មែកធាងឆ្លងជំនាន់)",
+      auditTrailTitle: "កំណត់ហេតុការសម្រេចចិត្ត & សវនកម្ម",
+      auditAction: "សកម្មភាព",
+      auditActor: "សមាជិកក្រុមប្រឹក្សា",
+      auditTime: "កាលបរិច្ឆេទ & ពេលវេលា",
     },
     heritage: {
       sacredBonds: "ចំណងគ្រួសារដ៏ពិសិដ្ឋ",
