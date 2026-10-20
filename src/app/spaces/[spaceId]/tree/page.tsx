@@ -53,9 +53,16 @@ interface PersonDetail extends TreePerson {
   }[];
 }
 
+const nodeTypes = { heritagePerson: HeritagePersonNode };
+const EMPTY_SET = new Set<string>();
+
 function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
   const { t, language } = useLanguage();
   const reactFlowInstance = useReactFlow();
+  const reactFlowRef = React.useRef(reactFlowInstance);
+  useEffect(() => {
+    reactFlowRef.current = reactFlowInstance;
+  }, [reactFlowInstance]);
   const searchParams = useSearchParams();
   const focusParamId = searchParams.get("focusPersonId");
 
@@ -96,14 +103,12 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
   const [kinshipResult, setKinshipResult] = useState<KinshipResult | null>(null);
   const [kinshipError, setKinshipError] = useState<string | null>(null);
 
-  const nodeTypes = useMemo(() => ({ heritagePerson: HeritagePersonNode }), []);
-
   // Compute highlighted nodes and edges for ancestry branch & direct relatives
   const { highlightedNodeIds, highlightedEdgeIds } = useMemo(() => {
     if (!selectedPersonId || relationships.length === 0) {
       return {
-        highlightedNodeIds: new Set<string>(),
-        highlightedEdgeIds: new Set<string>(),
+        highlightedNodeIds: EMPTY_SET,
+        highlightedEdgeIds: EMPTY_SET,
       };
     }
 
@@ -322,6 +327,10 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
         const layout = computeTreeLayout(treePeople, treeRels);
         setNodes(layout.nodes);
         setEdges(layout.edges);
+
+        setTimeout(() => {
+          reactFlowRef.current?.fitView({ padding: 0.25, duration: 400 });
+        }, 80);
       } catch (err: unknown) {
         if (!isMounted) return;
         const e = err as Error;
@@ -343,18 +352,38 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
     async (_event: React.MouseEvent, node: Node) => {
       setSelectedPersonId(node.id);
       setIsEditing(false);
+
+      const nodePerson = (node.data as unknown as { person?: TreePerson })?.person;
+      if (nodePerson) {
+        setActiveProfile({
+          ...nodePerson,
+          parents: [],
+          children: [],
+          spouses: [],
+          memories: [],
+        });
+        setEditFirstName(nodePerson.firstName || "");
+        setEditLastName(nodePerson.lastName || "");
+        setEditKhmerName(nodePerson.khmerName || "");
+        setEditBirthYear(nodePerson.birthYear ? String(nodePerson.birthYear) : "");
+        setEditDeathYear(nodePerson.deathYear ? String(nodePerson.deathYear) : "");
+        setEditBio(nodePerson.biography || "");
+      }
+
       setProfileLoading(true);
       try {
         const res = await fetch(`/api/spaces/${spaceId}/people/${node.id}`);
         if (res.ok) {
           const data = await res.json();
-          setActiveProfile(data.person);
-          setEditFirstName(data.person.firstName);
-          setEditLastName(data.person.lastName);
-          setEditKhmerName(data.person.khmerName || "");
-          setEditBirthYear(data.person.birthYear ? String(data.person.birthYear) : "");
-          setEditDeathYear(data.person.deathYear ? String(data.person.deathYear) : "");
-          setEditBio(data.person.biography || "");
+          if (data.person) {
+            setActiveProfile(data.person);
+            setEditFirstName(data.person.firstName);
+            setEditLastName(data.person.lastName);
+            setEditKhmerName(data.person.khmerName || "");
+            setEditBirthYear(data.person.birthYear ? String(data.person.birthYear) : "");
+            setEditDeathYear(data.person.deathYear ? String(data.person.deathYear) : "");
+            setEditBio(data.person.biography || "");
+          }
         }
       } catch (err) {
         console.error("Profile load error", err);
@@ -529,11 +558,11 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
   }, [searchQuery, people]);
 
   return (
-    <div className="min-h-screen bg-[#0c0f14] flex flex-col overflow-hidden font-khmer">
+    <div className="h-screen w-screen bg-[#0c0f14] flex flex-col overflow-hidden font-khmer">
       <Navigation activeSpaceId={spaceId} />
 
       {/* Top Controls Toolbar */}
-      <div className="bg-[#0f141f]/95 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 z-30">
+      <div className="shrink-0 bg-[#0f141f]/95 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 z-30">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] flex items-center justify-center shrink-0">
@@ -636,7 +665,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
       </div>
 
       {/* Main Canvas Area */}
-      <div className="flex-1 relative w-full h-[calc(100vh-112px)]">
+      <div className="react-flow-wrapper overflow-hidden" style={{ height: "calc(100vh - 120px)", minHeight: "500px" }}>
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center bg-[#0c0f14] z-20">
             <div className="text-center">
@@ -692,9 +721,12 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
             onNodeClick={handleNodeClick}
             nodeTypes={nodeTypes}
             fitView
+            fitViewOptions={{ padding: 0.25 }}
+            defaultViewport={{ x: 60, y: 40, zoom: 0.75 }}
             minZoom={0.2}
             maxZoom={2.5}
-            className="bg-[#0c0f14]"
+            className="w-full h-full bg-[#0c0f14]"
+            style={{ width: "100%", height: "100%" }}
           >
             <Background color="#1e293b" gap={24} size={1} />
             <Controls className="!bg-[#141923] !border-slate-800 !fill-slate-300 !rounded-xl !shadow-xl" />

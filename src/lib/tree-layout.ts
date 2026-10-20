@@ -38,6 +38,8 @@ export interface FormattedTreeGraph {
 /**
  * Computes logical hierarchical generations and non-overlapping coordinates
  * for React Flow visualization of a family heritage DAG.
+ * Arranges generations from top to bottom:
+ * Grandparents (Gen 0) -> Parents & Siblings (Gen 1) -> Cousins & Children (Gen 2).
  */
 export function computeTreeLayout(
   people: TreePerson[],
@@ -45,9 +47,9 @@ export function computeTreeLayout(
   options: LayoutOptions = {}
 ): FormattedTreeGraph {
   const {
-    nodeWidth = 220,
-    nodeHeight = 140,
-    horizontalSpacing = 60,
+    nodeWidth = 240,
+    nodeHeight = 130,
+    horizontalSpacing = 65,
     verticalSpacing = 160,
   } = options;
 
@@ -90,7 +92,7 @@ export function computeTreeLayout(
     generationMap.set(rootId, 0);
   }
 
-  // If there are cycles or disconnected components without roots, initialize with 0
+  // If there are disconnected components without roots, initialize with 0
   for (const p of people) {
     if (!generationMap.has(p.id)) {
       generationMap.set(p.id, 0);
@@ -100,7 +102,7 @@ export function computeTreeLayout(
   // Propagate generations downward (parent -> child is +1 generation)
   let changed = true;
   let iterations = 0;
-  while (changed && iterations < 20) {
+  while (changed && iterations < 25) {
     changed = false;
     iterations++;
 
@@ -113,7 +115,7 @@ export function computeTreeLayout(
           changed = true;
         }
       } else if (rel.type === "SPOUSE") {
-        // Spouses share the same generation
+        // Spouses share the same generation level
         const gen1 = generationMap.get(rel.personId) || 0;
         const gen2 = generationMap.get(rel.relatedPersonId) || 0;
         const maxSpouseGen = Math.max(gen1, gen2);
@@ -144,22 +146,56 @@ export function computeTreeLayout(
   }
 
   // 5. Compute (X, Y) positions for each generation
+  // Uses parental barycenter to cluster siblings and cousins under their respective parents
   const positions = new Map<string, { x: number; y: number }>();
   const sortedGenerations = Array.from(generationGroups.keys()).sort((a, b) => a - b);
 
   for (const gen of sortedGenerations) {
     const personIds = generationGroups.get(gen)!;
 
-    // Order persons in generation so spouses are placed next to each other
+    // Calculate desired X position based on parents in the generation above
+    const desiredXMap = new Map<string, number>();
+    for (const id of personIds) {
+      const parents = parentsMap.get(id) || [];
+      const knownParentPositions = parents
+        .map((pId) => positions.get(pId))
+        .filter((pos): pos is { x: number; y: number } => pos !== undefined);
+
+      if (knownParentPositions.length > 0) {
+        const avgX =
+          knownParentPositions.reduce((acc, p) => acc + p.x, 0) / knownParentPositions.length;
+        desiredXMap.set(id, avgX);
+      } else {
+        // For spouses with no known parents, adopt spouse's desired X if available
+        const spouses = spousesMap.get(id) || [];
+        const spouseWithPos = spouses
+          .map((sId) => positions.get(sId))
+          .find((pos): pos is { x: number; y: number } => pos !== undefined);
+
+        if (spouseWithPos) {
+          desiredXMap.set(id, spouseWithPos.x + nodeWidth + horizontalSpacing);
+        } else {
+          desiredXMap.set(id, 0);
+        }
+      }
+    }
+
+    // Sort persons in generation by desiredX to minimize crossing
+    const sortedById = [...personIds].sort((a, b) => {
+      const xA = desiredXMap.get(a) ?? 0;
+      const xB = desiredXMap.get(b) ?? 0;
+      return xA - xB;
+    });
+
+    // Pair unplaced spouses directly adjacent
     const orderedIds: string[] = [];
     const placed = new Set<string>();
 
-    for (const id of personIds) {
+    for (const id of sortedById) {
       if (placed.has(id)) continue;
       orderedIds.push(id);
       placed.add(id);
 
-      // Immediately place unplaced spouses adjacent
       const spouses = spousesMap.get(id) || [];
       for (const spouseId of spouses) {
         if (!placed.has(spouseId) && personIds.includes(spouseId)) {
@@ -179,15 +215,29 @@ export function computeTreeLayout(
     });
   }
 
-  // 6. Generate React Flow Nodes
+  // Shift all coordinates so minimum X is at 80px and minimum Y is at 60px
+  let minX = Infinity;
+  for (const pos of positions.values()) {
+    if (pos.x < minX) minX = pos.x;
+  }
+  const offsetX = minX !== Infinity && minX < 80 ? 80 - minX : 0;
+  for (const [id, pos] of positions.entries()) {
+    positions.set(id, { x: pos.x + offsetX, y: pos.y + 60 });
+  }
+
+  // 6. Generate React Flow Nodes (Each person appears strictly ONCE)
   const nodes: Node[] = people.map((person) => {
-    const pos = positions.get(person.id) || { x: 0, y: 0 };
+    const pos = positions.get(person.id) || { x: 80, y: 60 };
     const gen = generationMap.get(person.id) || 0;
 
     return {
       id: person.id,
       type: "heritagePerson",
       position: pos,
+      width: nodeWidth,
+      height: nodeHeight,
+      initialWidth: nodeWidth,
+      initialHeight: nodeHeight,
       data: {
         person,
         generation: gen,
@@ -198,7 +248,7 @@ export function computeTreeLayout(
     };
   });
 
-  // 7. Generate React Flow Edges
+  // 7. Generate React Flow Edges with explicit handle connections
   const edges: Edge[] = relationships
     .filter((rel) => rel.status !== "FLAGGED_AMBIGUOUS")
     .map((rel) => {
@@ -206,9 +256,32 @@ export function computeTreeLayout(
       const isDisputed = rel.status === "DISPUTED";
       const isPending = rel.status === "PENDING_APPROVAL";
 
+      let source = rel.personId;
+      let target = rel.relatedPersonId;
+      let sourceHandle = "child-out";
+      let targetHandle = "parent-in";
+
+      if (isSpouse) {
+        // Find X positions of both spouses to connect side-by-side horizontally
+        const posX1 = positions.get(rel.personId)?.x ?? 0;
+        const posX2 = positions.get(rel.relatedPersonId)?.x ?? 0;
+
+        if (posX1 <= posX2) {
+          source = rel.personId;
+          sourceHandle = "spouse-out";
+          target = rel.relatedPersonId;
+          targetHandle = "spouse-in";
+        } else {
+          source = rel.relatedPersonId;
+          sourceHandle = "spouse-out";
+          target = rel.personId;
+          targetHandle = "spouse-in";
+        }
+      }
+
       let stroke = isSpouse ? "#f43f5e" : "#d4af37";
       let strokeDasharray: string | undefined = isSpouse ? "5,5" : undefined;
-      let strokeWidth = 2.2;
+      let strokeWidth = 2.5;
 
       if (isDisputed) {
         stroke = "#f59e0b"; // Amber for disputed connections
@@ -222,8 +295,10 @@ export function computeTreeLayout(
 
       return {
         id: `edge_${rel.id}`,
-        source: rel.personId,
-        target: rel.relatedPersonId,
+        source,
+        target,
+        sourceHandle,
+        targetHandle,
         type: isSpouse ? "straight" : "smoothstep",
         animated: isSpouse || isPending || isDisputed,
         style: {

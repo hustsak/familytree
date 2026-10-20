@@ -11,7 +11,6 @@ import {
   TreePine,
   ArrowRight,
   AlertCircle,
-  Lock,
   Sparkles,
   GitBranch,
 } from "lucide-react";
@@ -51,11 +50,9 @@ function InviteAcceptContent({ token }: { token: string }) {
   useEffect(() => {
     async function checkAuthAndInvite() {
       try {
-        let hasUser = false;
         try {
           const supabase = createClient();
           const { data } = await supabase.auth.getUser();
-          hasUser = !!data?.user;
           if (data?.user?.user_metadata?.full_name) {
             const parts = (data.user.user_metadata.full_name as string).split(" ");
             if (parts.length > 1) {

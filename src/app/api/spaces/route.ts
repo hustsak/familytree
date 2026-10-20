@@ -32,7 +32,7 @@ export async function GET() {
     }
 
     try {
-      const memberships = await prisma.spaceMember.findMany({
+      let memberships = await prisma.spaceMember.findMany({
         where: {
           userId: user.id,
           status: MemberStatus.ACTIVE,
@@ -62,27 +62,78 @@ export async function GET() {
         },
       });
 
-      if (memberships.length > 0) {
-        const spaces = memberships.map((m) => ({
-          id: m.space.id,
-          name: m.space.name,
-          slug: m.space.slug,
-          description: m.space.description,
-          role: m.role,
-          joinedAt: m.joinedAt,
-          memberCount: m.space._count.members,
-          peopleCount: m.space._count.people,
-          linkedPerson: m.person,
-        }));
+      if (memberships.length === 0) {
+        // Ensure user exists in db
+        await prisma.user.upsert({
+          where: { id: user.id },
+          update: { email: user.email, fullName: user.fullName, language: user.language || "km" },
+          create: { id: user.id, email: user.email, fullName: user.fullName, language: user.language || "km" },
+        });
 
-        return NextResponse.json({ spaces });
+        // Find or create default family space in database
+        let space = await prisma.familySpace.findFirst({
+          include: {
+            _count: {
+              select: { members: true, people: true },
+            },
+          },
+        });
+
+        if (!space) {
+          space = await prisma.familySpace.create({
+            data: {
+              name: "ពង្សាវតារគ្រួសារ (Family Heritage)",
+              slug: "family-heritage",
+              description: "ដែនពង្សាវតារនិងមែកធាងគ្រួសាររួម",
+            },
+            include: {
+              _count: {
+                select: { members: true, people: true },
+              },
+            },
+          });
+        }
+
+        const member = await prisma.spaceMember.create({
+          data: {
+            spaceId: space.id,
+            userId: user.id,
+            role: Role.OWNER,
+            status: MemberStatus.ACTIVE,
+          },
+          include: {
+            space: {
+              include: {
+                _count: { select: { members: true, people: true } },
+              },
+            },
+            person: {
+              select: { id: true, firstName: true, lastName: true, photoUrl: true },
+            },
+          },
+        });
+
+        memberships = [member];
       }
+
+      const spaces = memberships.map((m) => ({
+        id: m.space.id,
+        name: m.space.name,
+        slug: m.space.slug,
+        description: m.space.description,
+        role: m.role,
+        joinedAt: m.joinedAt,
+        memberCount: m.space._count.members,
+        peopleCount: m.space._count.people,
+        linkedPerson: m.person,
+      }));
+
+      return NextResponse.json({ spaces });
     } catch (dbError) {
       console.warn("DB query failed in GET /api/spaces, using fallback:", dbError);
     }
 
-    // Direct Family Space default fallback
-    return NextResponse.json({ spaces: DEFAULT_FAMILY_SPACES });
+    return NextResponse.json({ spaces: [] });
   } catch (error) {
     console.error("GET /api/spaces error:", error);
     return NextResponse.json({ spaces: DEFAULT_FAMILY_SPACES });

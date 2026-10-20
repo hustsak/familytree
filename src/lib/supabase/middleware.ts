@@ -35,9 +35,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Refresh session if expired - required for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  await supabase.auth.getUser();
 
   // Direct access: Redirect any visits to /login directly to /dashboard
   if (request.nextUrl.pathname.startsWith("/login")) {

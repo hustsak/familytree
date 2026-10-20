@@ -222,7 +222,7 @@ export async function requireSpaceRole(
     person: null,
   };
 
-  return { user, membership: fallbackMembership as any };
+  return { user, membership: fallbackMembership as NonNullable<Awaited<ReturnType<typeof getSpaceMembership>>> };
 }
 
 /**

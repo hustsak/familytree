@@ -19,141 +19,13 @@ const updatePersonSchema = z.object({
   biography: z.string().max(3000).optional().nullable(),
 });
 
-const FALLBACK_PEOPLE_MAP: Record<string, any> = {
-  "person-gp-1": {
-    id: "person-gp-1",
-    firstName: "Sok",
-    lastName: "Chan",
-    khmerName: "ចាន់ សុខ (ជីតា)",
-    gender: "MALE",
-    birthYear: 1948,
-    deathYear: null,
-    isLiving: true,
-    isVerified: true,
-    isRestricted: false,
-    photoUrl: null,
-    biography: "បុព្វបុរសនិងមេគ្រួសារ",
-    parents: [],
-    children: [{ id: "person-p-1", firstName: "Vireak", lastName: "Chan", khmerName: "ចាន់ វីរៈ" }],
-    spouses: [{ id: "person-gp-2", firstName: "Bopha", lastName: "Keo", khmerName: "កែវ បុប្ផា" }],
-    memories: [],
-  },
-  "person-gp-2": {
-    id: "person-gp-2",
-    firstName: "Bopha",
-    lastName: "Keo",
-    khmerName: "កែវ បុប្ផា (ជីដូន)",
-    gender: "FEMALE",
-    birthYear: 1952,
-    deathYear: null,
-    isLiving: true,
-    isVerified: true,
-    isRestricted: false,
-    photoUrl: null,
-    biography: "ជីដូនជាទីគោរពស្រឡាញ់នៃគ្រួសារ",
-    parents: [],
-    children: [{ id: "person-p-1", firstName: "Vireak", lastName: "Chan", khmerName: "ចាន់ វីរៈ" }],
-    spouses: [{ id: "person-gp-1", firstName: "Sok", lastName: "Chan", khmerName: "ចាន់ សុខ" }],
-    memories: [],
-  },
-  "person-p-1": {
-    id: "person-p-1",
-    firstName: "Vireak",
-    lastName: "Chan",
-    khmerName: "ចាន់ វីរៈ (ឪពុក)",
-    gender: "MALE",
-    birthYear: 1975,
-    deathYear: null,
-    isLiving: true,
-    isVerified: true,
-    isRestricted: false,
-    photoUrl: null,
-    biography: "កូនប្រុសច្បង និងជាសសរទ្រូងគ្រួសារ",
-    parents: [
-      { id: "person-gp-1", firstName: "Sok", lastName: "Chan", khmerName: "ចាន់ សុខ" },
-      { id: "person-gp-2", firstName: "Bopha", lastName: "Keo", khmerName: "កែវ បុប្ផា" },
-    ],
-    children: [
-      { id: "person-c-1", firstName: "Dara", lastName: "Chan", khmerName: "ចាន់ តារា" },
-      { id: "person-c-2", firstName: "Monika", lastName: "Chan", khmerName: "ចាន់ ម៉ូនីកា" },
-    ],
-    spouses: [{ id: "person-p-2", firstName: "Sreyneang", lastName: "Chea", khmerName: "ជា ស្រីនាង" }],
-    memories: [],
-  },
-  "person-p-2": {
-    id: "person-p-2",
-    firstName: "Sreyneang",
-    lastName: "Chea",
-    khmerName: "ជា ស្រីនាង (ម្តាយ)",
-    gender: "FEMALE",
-    birthYear: 1978,
-    deathYear: null,
-    isLiving: true,
-    isVerified: true,
-    isRestricted: false,
-    photoUrl: null,
-    biography: "ម្តាយជាទីស្រឡាញ់",
-    parents: [],
-    children: [
-      { id: "person-c-1", firstName: "Dara", lastName: "Chan", khmerName: "ចាន់ តារា" },
-      { id: "person-c-2", firstName: "Monika", lastName: "Chan", khmerName: "ចាន់ ម៉ូនីកា" },
-    ],
-    spouses: [{ id: "person-p-1", firstName: "Vireak", lastName: "Chan", khmerName: "ចាន់ វីរៈ" }],
-    memories: [],
-  },
-  "person-c-1": {
-    id: "person-c-1",
-    firstName: "Dara",
-    lastName: "Chan",
-    khmerName: "ចាន់ តារា (កូន)",
-    gender: "MALE",
-    birthYear: 2002,
-    deathYear: null,
-    isLiving: true,
-    isVerified: true,
-    isRestricted: false,
-    photoUrl: null,
-    biography: "ជំនាន់កូនចៅបន្តវេន",
-    parents: [
-      { id: "person-p-1", firstName: "Vireak", lastName: "Chan", khmerName: "ចាន់ វីរៈ" },
-      { id: "person-p-2", firstName: "Sreyneang", lastName: "Chea", khmerName: "ជា ស្រីនាង" },
-    ],
-    children: [],
-    spouses: [],
-    memories: [],
-  },
-  "person-c-2": {
-    id: "person-c-2",
-    firstName: "Monika",
-    lastName: "Chan",
-    khmerName: "ចាន់ ម៉ូនីកា (កូន)",
-    gender: "FEMALE",
-    birthYear: 2005,
-    deathYear: null,
-    isLiving: true,
-    isVerified: true,
-    isRestricted: false,
-    photoUrl: null,
-    biography: "ជំនាន់កូនចៅបន្តវេន",
-    parents: [
-      { id: "person-p-1", firstName: "Vireak", lastName: "Chan", khmerName: "ចាន់ វីរៈ" },
-      { id: "person-p-2", firstName: "Sreyneang", lastName: "Chea", khmerName: "ជា ស្រីនាង" },
-    ],
-    children: [],
-    spouses: [],
-    memories: [],
-  },
-};
-
 // GET /api/spaces/[spaceId]/people/[personId] - Fetch relative profile
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string; personId: string }> }
 ) {
-  let resolvedPersonId: string | undefined;
   try {
     const { spaceId, personId } = await params;
-    resolvedPersonId = personId;
     const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
 
     const person = await prisma.person.findUnique({
@@ -187,9 +59,6 @@ export async function GET(
     });
 
     if (!person || person.spaceId !== spaceId) {
-      if (FALLBACK_PEOPLE_MAP[personId]) {
-        return NextResponse.json({ person: FALLBACK_PEOPLE_MAP[personId] });
-      }
       return NextResponse.json({ error: "Person not found in this space" }, { status: 404 });
     }
 
@@ -227,9 +96,6 @@ export async function GET(
       },
     });
   } catch (error: unknown) {
-    if (resolvedPersonId && FALLBACK_PEOPLE_MAP[resolvedPersonId]) {
-      return NextResponse.json({ person: FALLBACK_PEOPLE_MAP[resolvedPersonId] });
-    }
     const err = error as { status?: number; message?: string };
     return NextResponse.json(
       { error: err.message || "Failed to load relative profile" },
