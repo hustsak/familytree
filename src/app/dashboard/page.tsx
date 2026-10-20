@@ -15,6 +15,10 @@ import {
   ArrowRight,
   Sparkles,
   BookOpen,
+  UserPlus,
+  Copy,
+  Check,
+  X,
 } from "lucide-react";
 
 interface FamilySpaceItem {
@@ -45,6 +49,15 @@ export default function DashboardPage() {
   const [newSpaceDesc, setNewSpaceDesc] = useState("");
   const [creating, setCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Invite Relative Modal State
+  const [inviteSpace, setInviteSpace] = useState<FamilySpaceItem | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
+  const [inviteResultUrl, setInviteResultUrl] = useState<string | null>(null);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function loadUserAndSpaces() {
@@ -121,6 +134,48 @@ export default function DashboardPage() {
     }
   };
 
+  const handleGenerateInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteSpace || !inviteEmail.trim()) return;
+
+    setGeneratingInvite(true);
+    setInviteError(null);
+    setInviteResultUrl(null);
+    setCopied(false);
+
+    try {
+      const res = await fetch(`/api/spaces/${inviteSpace.id}/invitations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          expiresInDays: 7,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create invitation");
+      }
+
+      setInviteResultUrl(data.inviteUrl);
+      setInviteEmail("");
+    } catch (err: unknown) {
+      const e = err as Error;
+      setInviteError(e.message || "Failed to create invitation");
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (!inviteResultUrl) return;
+    navigator.clipboard.writeText(inviteResultUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "OWNER":
@@ -168,6 +223,7 @@ export default function DashboardPage() {
           </div>
 
           <button
+            type="button"
             onClick={() => setShowCreateModal(true)}
             className="self-start md:self-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 shadow-md shadow-[#d4af37]/20 transition-all cursor-pointer"
           >
@@ -192,6 +248,7 @@ export default function DashboardPage() {
               {t.spaces.noSpacesDesc}
             </p>
             <button
+              type="button"
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all cursor-pointer shadow-lg shadow-[#d4af37]/20"
             >
@@ -201,50 +258,78 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-8">
-            {spaces.map((space) => (
-              <div
-                key={space.id}
-                className="heritage-card p-6 flex flex-col justify-between gold-glow-hover transition-all group"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-[#d4af37] group-hover:border-[#d4af37]/50 transition-colors">
-                      <BookOpen className="w-6 h-6" />
+            {spaces.map((space) => {
+              const canInvite = space.role === "OWNER" || space.role === "ADMIN";
+              return (
+                <div
+                  key={space.id}
+                  className="heritage-card p-6 flex flex-col justify-between gold-glow-hover transition-all group"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-xl bg-slate-800/90 border border-slate-700/80 flex items-center justify-center text-[#d4af37] group-hover:border-[#d4af37]/50 transition-colors">
+                        <BookOpen className="w-6 h-6" />
+                      </div>
+                      {getRoleBadge(space.role)}
                     </div>
-                    {getRoleBadge(space.role)}
+
+                    <h3 className="text-xl font-bold font-heritage text-white mb-2 group-hover:text-[#d4af37] transition-colors">
+                      {space.name}
+                    </h3>
+
+                    <p className="text-xs text-slate-400 line-clamp-2 mb-6 min-h-[32px]">
+                      {space.description || t.heritage.preserveLegacy}
+                    </p>
                   </div>
 
-                  <h3 className="text-xl font-bold font-heritage text-white mb-2 group-hover:text-[#d4af37] transition-colors">
-                    {space.name}
-                  </h3>
+                  <div className="pt-4 border-t border-slate-800/80 space-y-4">
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span className="flex items-center gap-1.5">
+                        <Users2 className="w-4 h-4 text-slate-500" />
+                        {space.memberCount} {t.spaces.membersCount}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <TreePine className="w-4 h-4 text-[#d4af37]" />
+                        {space.peopleCount} relatives in tree
+                      </span>
+                    </div>
 
-                  <p className="text-xs text-slate-400 line-clamp-2 mb-6 min-h-[32px]">
-                    {space.description || t.heritage.preserveLegacy}
-                  </p>
-                </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link
+                        href={space.linkedPerson ? `/spaces/${space.id}/tree` : `/spaces/${space.id}/onboarding`}
+                        className="py-2.5 px-3 rounded-xl text-xs font-semibold text-slate-200 bg-slate-800/90 hover:bg-[#d4af37] hover:text-slate-950 transition-all flex items-center justify-center gap-1.5 border border-slate-700/60 hover:border-transparent text-center"
+                      >
+                        <span>{space.linkedPerson ? t.spaces.enterSpace : "Onboard"}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
 
-                <div className="pt-4 border-t border-slate-800/80 space-y-4">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span className="flex items-center gap-1.5">
-                      <Users2 className="w-4 h-4 text-slate-500" />
-                      {space.memberCount} {t.spaces.membersCount}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <TreePine className="w-4 h-4 text-[#d4af37]" />
-                      {space.peopleCount} relatives in tree
-                    </span>
+                      {canInvite ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInviteSpace(space);
+                            setInviteRole("MEMBER");
+                            setInviteResultUrl(null);
+                            setInviteError(null);
+                          }}
+                          className="py-2.5 px-3 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-700/80 hover:border-[#d4af37]/50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-[#d4af37]" />
+                          <span>Invite</span>
+                        </button>
+                      ) : (
+                        <Link
+                          href={`/spaces/${space.id}/onboarding`}
+                          className="py-2.5 px-3 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition-all text-center"
+                        >
+                          My Lineage
+                        </Link>
+                      )}
+                    </div>
                   </div>
-
-                  <Link
-                    href={`/spaces/${space.id}/tree`}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-200 bg-slate-800/90 hover:bg-[#d4af37] hover:text-slate-950 transition-all flex items-center justify-center gap-2 border border-slate-700/60 hover:border-transparent"
-                  >
-                    <span>{t.spaces.enterSpace}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -328,6 +413,143 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Invite Relative */}
+      {inviteSpace && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="heritage-card-elevated max-w-md w-full p-6 sm:p-8 relative">
+            <button
+              type="button"
+              onClick={() => {
+                setInviteSpace(null);
+                setInviteResultUrl(null);
+              }}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-bold font-heritage text-white mb-1">
+              {t.invitations.inviteModalTitle}
+            </h3>
+            <p className="text-xs text-slate-400 mb-6">
+              {t.invitations.inviteModalSubtitle} ({inviteSpace.name})
+            </p>
+
+            {inviteError && (
+              <div className="mb-4 p-3 rounded-lg bg-rose-950/50 border border-rose-800 text-rose-200 text-xs">
+                {inviteError}
+              </div>
+            )}
+
+            {inviteResultUrl ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-xs text-emerald-200">
+                  <div className="flex items-center gap-2 font-semibold mb-1 text-emerald-300">
+                    <Check className="w-4 h-4" />
+                    <span>{t.invitations.inviteGenerated}</span>
+                  </div>
+                  Share this single-use link with your relative. It will expire in 7 days.
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    value={inviteResultUrl}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 font-mono pr-24"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="absolute right-1.5 top-1.5 bottom-1.5 px-3 rounded-lg bg-[#d4af37] text-slate-950 text-xs font-semibold hover:bg-[#e5c158] transition-colors flex items-center gap-1.5"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="pt-4 border-t border-slate-800 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInviteSpace(null);
+                      setInviteResultUrl(null);
+                    }}
+                    className="px-5 py-2 rounded-xl text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleGenerateInvite} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                    Relative Email Address <span className="text-[#d4af37]">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder={t.invitations.emailPlaceholder}
+                    className="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                    {t.invitations.roleOffered}
+                  </label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as "ADMIN" | "MEMBER")}
+                    disabled={inviteSpace.role !== "OWNER"}
+                    className="w-full px-3.5 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-[#d4af37]"
+                  >
+                    <option value="MEMBER">Family Member</option>
+                    {inviteSpace.role === "OWNER" && (
+                      <option value="ADMIN">Council Guardian (Admin)</option>
+                    )}
+                  </select>
+                  {inviteSpace.role !== "OWNER" && (
+                    <span className="text-[10px] text-slate-500 block mt-1">
+                      Admins can invite Family Members. Only the Space Owner can invite new Admins.
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setInviteSpace(null)}
+                    className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={generatingInvite}
+                    className="px-5 py-2 rounded-xl text-xs font-semibold text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all disabled:opacity-50"
+                  >
+                    {generatingInvite ? t.auth.loading : t.invitations.sendInviteBtn}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

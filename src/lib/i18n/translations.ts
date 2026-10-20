@@ -49,6 +49,56 @@ export interface Translations {
     roleAdmin: string;
     roleMember: string;
   };
+  invitations: {
+    title: string;
+    subtitle: string;
+    invitedBy: string;
+    roleOffered: string;
+    expiresIn: string;
+    acceptBtn: string;
+    alreadyAccepted: string;
+    invalidTitle: string;
+    invalidSubtitle: string;
+    inviteRelativeBtn: string;
+    inviteModalTitle: string;
+    inviteModalSubtitle: string;
+    emailPlaceholder: string;
+    sendInviteBtn: string;
+    inviteGenerated: string;
+    copyLink: string;
+    copied: string;
+  };
+  onboarding: {
+    title: string;
+    subtitle: string;
+    step1: string;
+    step2: string;
+    step3: string;
+    firstNameLabel: string;
+    lastNameLabel: string;
+    khmerNameLabel: string;
+    genderLabel: string;
+    genderMale: string;
+    genderFemale: string;
+    genderOther: string;
+    birthYearLabel: string;
+    relationPrompt: string;
+    relationParent: string;
+    relationGrandparent: string;
+    relationGreatGrandparent: string;
+    relationRoot: string;
+    searchRelativePlaceholder: string;
+    noRelativesFound: string;
+    selectedAnchor: string;
+    submitBtn: string;
+    submitting: string;
+    successTitle: string;
+    successDesc: string;
+    viewTreeBtn: string;
+    clarificationTitle: string;
+    clarificationPrompt: string;
+    duplicateWarningTitle: string;
+  };
   heritage: {
     sacredBonds: string;
     preserveLegacy: string;
@@ -108,6 +158,56 @@ export const translations: Record<SupportedLanguage, Translations> = {
       roleAdmin: "Council Guardian (Admin)",
       roleMember: "Family Member",
     },
+    invitations: {
+      title: "Family Lineage Invitation",
+      subtitle: "You have been personally summoned to join a private sacred family sanctuary.",
+      invitedBy: "Invited by",
+      roleOffered: "Lineage Role",
+      expiresIn: "Expires on",
+      acceptBtn: "Accept & Enter Lineage",
+      alreadyAccepted: "This invitation token has already been claimed.",
+      invalidTitle: "Invalid or Expired Invitation",
+      invalidSubtitle: "This invitation link is no longer valid. Please contact your family council administrator for a fresh link.",
+      inviteRelativeBtn: "Invite Relative",
+      inviteModalTitle: "Summon a Family Relative",
+      inviteModalSubtitle: "Generate an invitation link to invite a relative into this private sanctuary.",
+      emailPlaceholder: "relative@familyheritage.org",
+      sendInviteBtn: "Generate Invitation",
+      inviteGenerated: "Invitation Created Successfully",
+      copyLink: "Copy Invite Link",
+      copied: "Copied to clipboard!",
+    },
+    onboarding: {
+      title: "Lineage Onboarding",
+      subtitle: "Register your real identity and weave yourself into the family tree.",
+      step1: "1. Real Identity",
+      step2: "2. Ancestral Anchor",
+      step3: "3. Branch Verification",
+      firstNameLabel: "First Name",
+      lastNameLabel: "Last Name",
+      khmerNameLabel: "Khmer Name (Optional)",
+      genderLabel: "Gender",
+      genderMale: "Male",
+      genderFemale: "Female",
+      genderOther: "Other",
+      birthYearLabel: "Birth Year (Optional)",
+      relationPrompt: "Identify an existing relative in this tree as your:",
+      relationParent: "Parent (Father or Mother)",
+      relationGrandparent: "Grandparent",
+      relationGreatGrandparent: "Great-Grandparent",
+      relationRoot: "Founding Patriarch / Matriarch (Tree Root)",
+      searchRelativePlaceholder: "Type to search relatives by name...",
+      noRelativesFound: "No relatives found matching your query.",
+      selectedAnchor: "Selected Anchor Relative",
+      submitBtn: "Verify Lineage & Connect",
+      submitting: "Weaving into family tree...",
+      successTitle: "Lineage Connected Successfully",
+      successDesc: "Your node has been verified and placed into the interactive family tree.",
+      viewTreeBtn: "Open Interactive Tree",
+      clarificationTitle: "Lineage Clarification Needed",
+      clarificationPrompt: "Multiple branches were detected. Please specify your exact parent to prevent guessing relationships:",
+      duplicateWarningTitle: "Potential Duplicate Relative Detected",
+    },
     heritage: {
       sacredBonds: "Sacred Family Bonds",
       preserveLegacy: "Preserve every generation's name, story, and voice for posterity.",
@@ -164,6 +264,56 @@ export const translations: Record<SupportedLanguage, Translations> = {
       roleOwner: "មេគ្រួសារ (ម្ចាស់)",
       roleAdmin: "អ្នកគ្រប់គ្រងក្រុមប្រឹក្សា",
       roleMember: "សមាជិកគ្រួសារ",
+    },
+    invitations: {
+      title: "លិខិតអញ្ជើញចូលរួមពង្សាវតារ",
+      subtitle: "អ្នកត្រូវបានអញ្ជើញឱ្យចូលរួមក្នុងដែនពង្សាវតារគ្រួសារឯកជនដ៏ពិសិដ្ឋ។",
+      invitedBy: "អញ្ជើញដោយ",
+      roleOffered: "តួនាទីក្នុងខ្សែស្រឡាយ",
+      expiresIn: "ផុតកំណត់នៅថ្ងៃ",
+      acceptBtn: "ទទួលយក និងចូលរួមក្នុងខ្សែស្រឡាយ",
+      alreadyAccepted: "តំណភ្ជាប់អញ្ជើញនេះត្រូវបានប្រើប្រាស់រួចហើយ។",
+      invalidTitle: "តំណភ្ជាប់មិនត្រឹមត្រូវ ឬផុតកំណត់",
+      invalidSubtitle: "តំណភ្ជាប់អញ្ជើញនេះលែងមានសុពលភាពហើយ។ សូមទាក់ទងអ្នកគ្រប់គ្រងគ្រួសារដើម្បីសុំតំណថ្មី។",
+      inviteRelativeBtn: "អញ្ជើញសាច់ញាតិ",
+      inviteModalTitle: "អញ្ជើញសាច់ញាតិគ្រួសារ",
+      inviteModalSubtitle: "បង្កើតតំណភ្ជាប់អញ្ជើញដើម្បីអញ្ជើញសាច់ញាតិចូលរួមក្នុងដែនឯកជននេះ។",
+      emailPlaceholder: "relative@familyheritage.org",
+      sendInviteBtn: "បង្កើតតំណអញ្ជើញ",
+      inviteGenerated: "បានបង្កើតតំណអញ្ជើញដោយជោគជ័យ",
+      copyLink: "ចម្លងតំណអញ្ជើញ",
+      copied: "បានចម្លងទៅក្តារតម្បៀតខ្ទាស់!",
+    },
+    onboarding: {
+      title: "ការចុះឈ្មោះចូលក្នុងខ្សែស្រឡាយ",
+      subtitle: "សូមបញ្ចូលឈ្មោះពិតរបស់អ្នក និងតភ្ជាប់ខ្លួនអ្នកទៅក្នុងដើមឈើគ្រួសារ។",
+      step1: "១. អត្តសញ្ញាណពិត",
+      step2: "២. ជ្រើសរើសបុព្វការីជនបង្គោល",
+      step3: "៣. ការផ្ទៀងផ្ទាត់មែកធាង",
+      firstNameLabel: "នាមខ្លួន",
+      lastNameLabel: "នាមត្រកូល",
+      khmerNameLabel: "ឈ្មោះជាភាសាខ្មែរ (ស្រេចចិត្ត)",
+      genderLabel: "ភេទ",
+      genderMale: "ប្រុស",
+      genderFemale: "ស្រី",
+      genderOther: "ផ្សេងទៀត",
+      birthYearLabel: "ឆ្នាំកំណើត (ស្រេចចិត្ត)",
+      relationPrompt: "កំណត់សាច់ញាតិបង្គោលដែលមានស្រាប់ជា៖",
+      relationParent: "ឪពុក ឬម្តាយ (Parent)",
+      relationGrandparent: "ជីតា ឬជីដូន (Grandparent)",
+      relationGreatGrandparent: "ទួត (Great-Grandparent)",
+      relationRoot: "ដូនតាដើម ឬមេគ្រួសារដំបូង (Root)",
+      searchRelativePlaceholder: "វាយបញ្ចូលឈ្មោះដើម្បីស្វែងរកសាច់ញាតិ...",
+      noRelativesFound: "មិនមានសាច់ញាតិត្រូវនឹងការស្វែងរកឡើយ។",
+      selectedAnchor: "សាច់ញាតិបង្គោលដែលបានជ្រើសរើស",
+      submitBtn: "ផ្ទៀងផ្ទាត់ខ្សែស្រឡាយ និងតភ្ជាប់",
+      submitting: "កំពុងតភ្ជាប់ចូលក្នុងដើមឈើ...",
+      successTitle: "បានតភ្ជាប់ខ្សែស្រឡាយដោយជោគជ័យ",
+      successDesc: "ទិន្នន័យរបស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ និងបញ្ចូលទៅក្នុងដើមឈើគ្រួសារអន្តរកម្ម។",
+      viewTreeBtn: "បើកមើលដើមឈើគ្រួសារ",
+      clarificationTitle: "ត្រូវការបញ្ជាក់មែកធាងគ្រួសារ",
+      clarificationPrompt: "ប្រព័ន្ធបានរកឃើញមែកធាងច្រើន។ សូមជ្រើសរើសឪពុក ឬម្តាយពិតប្រាកដរបស់អ្នកដើម្បីជៀសវាងការស្មាន៖",
+      duplicateWarningTitle: "រកឃើញឈ្មោះសាច់ញាតិស្រដៀងគ្នា",
     },
     heritage: {
       sacredBonds: "ចំណងគ្រួសារដ៏ពិសិដ្ឋ",
