@@ -98,6 +98,29 @@ export interface Translations {
     clarificationTitle: string;
     clarificationPrompt: string;
     duplicateWarningTitle: string;
+    step4: string;
+    confirmBranch: string;
+    draftRestored: string;
+    connectViaGrandparentNotice: string;
+    selectParentPrompt: string;
+    selectGrandparentPrompt: string;
+  };
+  tree: {
+    findMyself: string;
+    focusBranch: string;
+    siblings: string;
+    memories: string;
+    noMemories: string;
+    verifiedBadge: string;
+    disputedBadge: string;
+    pendingBadge: string;
+    living: string;
+    deceased: string;
+    relativesInTree: string;
+    searchPlaceholder: string;
+    emptyTreeTitle: string;
+    emptyTreeDesc: string;
+    establishFoundingBtn: string;
   };
   adminDashboard: {
     title: string;
@@ -240,6 +263,29 @@ export const translations: Record<SupportedLanguage, Translations> = {
       clarificationTitle: "Lineage Clarification Needed",
       clarificationPrompt: "Multiple branches were detected. Please specify your exact parent to prevent guessing relationships:",
       duplicateWarningTitle: "Potential Duplicate Relative Detected",
+      step4: "4. Join Family Tree",
+      confirmBranch: "Confirm Family Branch & Kinship",
+      draftRestored: "Saved onboarding progress restored from draft.",
+      connectViaGrandparentNotice: "Parent not listed yet? You can connect through an existing grandparent or great-grandparent.",
+      selectParentPrompt: "Select your parent from existing relatives in this tree:",
+      selectGrandparentPrompt: "Select your grandparent or great-grandparent:",
+    },
+    tree: {
+      findMyself: "Find Myself",
+      focusBranch: "Focus Branch",
+      siblings: "Siblings",
+      memories: "Memories & Archives",
+      noMemories: "No memories or archival photos uploaded yet.",
+      verifiedBadge: "Verified Lineage",
+      disputedBadge: "Disputed Relationship",
+      pendingBadge: "Pending Council Approval",
+      living: "Living",
+      deceased: "Deceased",
+      relativesInTree: "relatives recorded in lineage",
+      searchPlaceholder: "Search relatives by name (English or Khmer)...",
+      emptyTreeTitle: "Empty Family Tree",
+      emptyTreeDesc: "This family space has no relatives recorded yet. Onboard the founding patriarch or matriarch to begin.",
+      establishFoundingBtn: "Establish Founding Ancestor",
     },
     adminDashboard: {
       title: "Family Council & Lineage Approvals",
@@ -380,6 +426,29 @@ export const translations: Record<SupportedLanguage, Translations> = {
       clarificationTitle: "ត្រូវការបញ្ជាក់មែកធាងគ្រួសារ",
       clarificationPrompt: "ប្រព័ន្ធបានរកឃើញមែកធាងច្រើន។ សូមជ្រើសរើសឪពុក ឬម្តាយពិតប្រាកដរបស់អ្នកដើម្បីជៀសវាងការស្មាន៖",
       duplicateWarningTitle: "រកឃើញឈ្មោះសាច់ញាតិស្រដៀងគ្នា",
+      step4: "៤. ចូលរួមដើមឈើគ្រួសារ",
+      confirmBranch: "ផ្ទៀងផ្ទាត់សាខាគ្រួសារ & ទំនាក់ទំនង",
+      draftRestored: "បានស្តារវឌ្ឍនភាពដែលបានរក្សាទុកដោយជោគជ័យ។",
+      connectViaGrandparentNotice: "ឪពុកម្តាយមិនទាន់មានក្នុងដើមឈើ? អ្នកអាចតភ្ជាប់តាមរយៈជីដូនជីតា ឬទួតបាន។",
+      selectParentPrompt: "ជ្រើសរើសឪពុក ឬម្តាយរបស់អ្នកពីសាច់ញាតិដែលមានស្រាប់៖",
+      selectGrandparentPrompt: "ជ្រើសរើសជីដូនជីតា ឬទួតរបស់អ្នក៖",
+    },
+    tree: {
+      findMyself: "ស្វែងរកខ្លួនខ្ញុំ",
+      focusBranch: "ផ្តោតលើសាខាគ្រួសារ",
+      siblings: "បងប្អូនបង្កើត",
+      memories: "អនុស្សាវរីយ៍ & បណ្ណសារ",
+      noMemories: "មិនទាន់មានរូបថត ឬអនុស្សាវរីយ៍ត្រូវបានបង្ហោះនៅឡើយទេ។",
+      verifiedBadge: "ខ្សែស្រឡាយផ្ទៀងផ្ទាត់រួច",
+      disputedBadge: "ទំនាក់ទំនងកំពុងជំទាស់",
+      pendingBadge: "រង់ចាំការអនុម័តពីក្រុមប្រឹក្សា",
+      living: "នៅរស់",
+      deceased: "ទទួលមរណភាព",
+      relativesInTree: "នាក់ក្នុងខ្សែស្រឡាយ",
+      searchPlaceholder: "ស្វែងរកសាច់ញាតិតាមឈ្មោះ (ខ្មែរ ឬអង់គ្លេស)...",
+      emptyTreeTitle: "មិនទាន់មានទិន្នន័យដើមឈើគ្រួសារ",
+      emptyTreeDesc: "ដែនគ្រួសារនេះមិនទាន់មានសាច់ញាតិណាម្នាក់នៅឡើយទេ។ សូមចុះឈ្មោះមេគ្រួសារដំបូងដើម្បីចាប់ផ្តើម។",
+      establishFoundingBtn: "ចុះឈ្មោះមេគ្រួសារដំបូង",
     },
     adminDashboard: {
       title: "ក្រុមប្រឹក្សាគ្រួសារ & ការអនុម័តខ្សែស្រឡាយ",

@@ -199,23 +199,44 @@ export function computeTreeLayout(
   });
 
   // 7. Generate React Flow Edges
-  const edges: Edge[] = confirmedRelationships.map((rel) => {
-    const isSpouse = rel.type === "SPOUSE";
+  const edges: Edge[] = relationships
+    .filter((rel) => rel.status !== "FLAGGED_AMBIGUOUS")
+    .map((rel) => {
+      const isSpouse = rel.type === "SPOUSE";
+      const isDisputed = rel.status === "DISPUTED";
+      const isPending = rel.status === "PENDING_APPROVAL";
 
-    return {
-      id: `edge_${rel.id}`,
-      source: rel.personId,
-      target: rel.relatedPersonId,
-      type: isSpouse ? "straight" : "smoothstep",
-      animated: isSpouse,
-      style: isSpouse
-        ? { stroke: "#f43f5e", strokeWidth: 2, strokeDasharray: "5,5" }
-        : { stroke: "#d4af37", strokeWidth: 2.2 },
-      data: {
-        type: rel.type,
-      },
-    };
-  });
+      let stroke = isSpouse ? "#f43f5e" : "#d4af37";
+      let strokeDasharray: string | undefined = isSpouse ? "5,5" : undefined;
+      let strokeWidth = 2.2;
+
+      if (isDisputed) {
+        stroke = "#f59e0b"; // Amber for disputed connections
+        strokeDasharray = "4,4";
+        strokeWidth = 2.5;
+      } else if (isPending) {
+        stroke = "#38bdf8"; // Sky blue for pending approval
+        strokeDasharray = "6,3";
+        strokeWidth = 2;
+      }
+
+      return {
+        id: `edge_${rel.id}`,
+        source: rel.personId,
+        target: rel.relatedPersonId,
+        type: isSpouse ? "straight" : "smoothstep",
+        animated: isSpouse || isPending || isDisputed,
+        style: {
+          stroke,
+          strokeWidth,
+          strokeDasharray,
+        },
+        data: {
+          type: rel.type,
+          status: rel.status,
+        },
+      };
+    });
 
   return { nodes, edges, generationCounts };
 }

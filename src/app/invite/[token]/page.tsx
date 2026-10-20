@@ -190,17 +190,55 @@ function InviteAcceptContent({ token }: { token: string }) {
                 </div>
               )}
 
+              {/* Onboarding Journey Flow Banner */}
+              <div className="mb-6 p-4 rounded-xl bg-slate-950/70 border border-[#d4af37]/25 text-xs">
+                <span className="text-[10px] text-[#d4af37] uppercase tracking-wider font-semibold block mb-2 text-center">
+                  {language === "km" ? "ដំណើរការចូលរួមគ្រួសារ ៦ ជំហានងាយៗ" : "6-Step Easy Family Onboarding"}
+                </span>
+                <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400 overflow-x-auto pb-1">
+                  <div className="flex flex-col items-center shrink-0 text-[#d4af37] font-semibold">
+                    <span className="w-5 h-5 rounded-full bg-[#d4af37] text-slate-950 flex items-center justify-center text-[10px] mb-1">1</span>
+                    <span>{language === "km" ? "បើកតំណ" : "Invite"}</span>
+                  </div>
+                  <span className="text-slate-600">→</span>
+                  <div className="flex flex-col items-center shrink-0">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">2</span>
+                    <span>{language === "km" ? "ចូលគណនី" : "Sign In"}</span>
+                  </div>
+                  <span className="text-slate-600">→</span>
+                  <div className="flex flex-col items-center shrink-0">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">3</span>
+                    <span>{language === "km" ? "ឈ្មោះពិត" : "Real Name"}</span>
+                  </div>
+                  <span className="text-slate-600">→</span>
+                  <div className="flex flex-col items-center shrink-0">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">4</span>
+                    <span>{language === "km" ? "រើសឪពុកម្តាយ" : "Parent"}</span>
+                  </div>
+                  <span className="text-slate-600">→</span>
+                  <div className="flex flex-col items-center shrink-0">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">5</span>
+                    <span>{language === "km" ? "បញ្ជាក់សាខា" : "Branch"}</span>
+                  </div>
+                  <span className="text-slate-600">→</span>
+                  <div className="flex flex-col items-center shrink-0">
+                    <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] mb-1">6</span>
+                    <span>{language === "km" ? "ដើមឈើ" : "Tree"}</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Family Sanctuary Preview Card */}
               <div className="p-5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-4 mb-8">
                 <div>
                   <span className="text-[11px] text-[#d4af37] uppercase tracking-wider font-semibold block mb-1">
-                    Family Sanctuary
+                    {language === "km" ? "ជម្រកគ្រួសារដែលអ្នកកំពុងចូលរួម" : "Family Sanctuary You Are Joining"}
                   </span>
-                  <h3 className="text-lg font-bold font-heritage text-white">
+                  <h3 className="text-xl font-bold font-heritage text-white">
                     {invite.space.name}
                   </h3>
                   {invite.space.description && (
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                       {invite.space.description}
                     </p>
                   )}
@@ -209,9 +247,10 @@ function InviteAcceptContent({ token }: { token: string }) {
                 <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-800/80 text-xs text-slate-300">
                   <div>
                     <span className="text-slate-500 block text-[10px] mb-0.5">
-                      {t.invitations.invitedBy}
+                      {language === "km" ? "អញ្ជើញដោយសាច់ញាតិ" : t.invitations.invitedBy}
                     </span>
-                    <span className="font-medium text-slate-200">
+                    <span className="font-semibold text-slate-100 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#d4af37]" />
                       {invite.inviterName}
                     </span>
                   </div>

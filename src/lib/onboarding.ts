@@ -24,6 +24,7 @@ export interface CandidatePerson {
   lastName: string;
   khmerName?: string | null;
   birthYear?: number | null;
+  photoUrl?: string | null;
 }
 
 export type OnboardingResult =
@@ -80,6 +81,7 @@ export async function searchSpaceRelatives(
       lastName: true,
       khmerName: true,
       birthYear: true,
+      photoUrl: true,
     },
     take: limit,
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

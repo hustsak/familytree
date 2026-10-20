@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, use, useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ReactFlow,
   Background,
@@ -30,23 +31,40 @@ import {
   User,
   Plus,
   ArrowRight,
+  LocateFixed,
+  Maximize2,
+  GitBranch,
+  ShieldCheck,
+  Image as ImageIcon,
+  Sparkles,
 } from "lucide-react";
 
 interface PersonDetail extends TreePerson {
-  parents: { id: string; firstName: string; lastName: string; khmerName?: string | null }[];
-  children: { id: string; firstName: string; lastName: string; khmerName?: string | null }[];
-  spouses: { id: string; firstName: string; lastName: string; khmerName?: string | null }[];
+  parents: { id: string; firstName: string; lastName: string; khmerName?: string | null; photoUrl?: string | null }[];
+  children: { id: string; firstName: string; lastName: string; khmerName?: string | null; photoUrl?: string | null }[];
+  spouses: { id: string; firstName: string; lastName: string; khmerName?: string | null; photoUrl?: string | null }[];
+  memories?: {
+    id: string;
+    title: string;
+    description?: string | null;
+    mediaUrl: string;
+    mediaType: "PHOTO" | "DOCUMENT" | "AUDIO" | "VIDEO";
+    year?: number | null;
+  }[];
 }
 
 function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const reactFlowInstance = useReactFlow();
+  const searchParams = useSearchParams();
+  const focusParamId = searchParams.get("focusPersonId");
 
   const [people, setPeople] = useState<TreePerson[]>([]);
   const [relationships, setRelationships] = useState<TreeRelationship[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("MEMBER");
+  const [linkedPersonId, setLinkedPersonId] = useState<string | null>(null);
 
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -57,6 +75,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState<PersonDetail | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [isBranchFocused, setIsBranchFocused] = useState(false);
 
   // Edit Profile State
   const [isEditing, setIsEditing] = useState(false);
@@ -82,11 +101,15 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
   // Compute highlighted nodes and edges for ancestry branch & direct relatives
   const { highlightedNodeIds, highlightedEdgeIds } = useMemo(() => {
     if (!selectedPersonId || relationships.length === 0) {
-      return { highlightedNodeIds: new Set<string>(), highlightedEdgeIds: new Set<string>() };
+      return {
+        highlightedNodeIds: new Set<string>(),
+        highlightedEdgeIds: new Set<string>(),
+      };
     }
 
     const nodesSet = new Set<string>();
     const edgesSet = new Set<string>();
+    const descendantsSet = new Set<string>();
     nodesSet.add(selectedPersonId);
 
     const parentMap = new Map<string, string[]>();
@@ -120,11 +143,11 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
       }
     }
 
-    // 1. Traverse ancestry branch upward
-    const queue = [selectedPersonId];
+    // 1. Traverse ancestry branch upward (Parents, Grandparents, etc.)
+    const ancestorQueue = [selectedPersonId];
     const visitedAncestors = new Set<string>();
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    while (ancestorQueue.length > 0) {
+      const current = ancestorQueue.shift()!;
       const parents = parentMap.get(current) || [];
       for (const p of parents) {
         nodesSet.add(p);
@@ -132,28 +155,39 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
         if (edgeId) edgesSet.add(edgeId);
         if (!visitedAncestors.has(p)) {
           visitedAncestors.add(p);
-          queue.push(p);
+          ancestorQueue.push(p);
         }
       }
     }
 
-    // 2. Direct relatives: Children
-    const children = childMap.get(selectedPersonId) || [];
-    for (const c of children) {
-      nodesSet.add(c);
-      const edgeId = edgeLookup.get(`${selectedPersonId}_${c}`);
-      if (edgeId) edgesSet.add(edgeId);
+    // 2. Traverse descendants downward (Children, Grandchildren, etc.)
+    const descendantQueue = [selectedPersonId];
+    const visitedDescendants = new Set<string>();
+    while (descendantQueue.length > 0) {
+      const current = descendantQueue.shift()!;
+      const children = childMap.get(current) || [];
+      for (const c of children) {
+        nodesSet.add(c);
+        descendantsSet.add(c);
+        const edgeId = edgeLookup.get(`${current}_${c}`);
+        if (edgeId) edgesSet.add(edgeId);
+        if (!visitedDescendants.has(c)) {
+          visitedDescendants.add(c);
+          descendantQueue.push(c);
+        }
+      }
     }
 
     // 3. Direct relatives: Spouses
     const spouses = spouseMap.get(selectedPersonId) || [];
     for (const s of spouses) {
       nodesSet.add(s);
-      const edgeId = edgeLookup.get(`${selectedPersonId}_${s}`) || edgeLookup.get(`${s}_${selectedPersonId}`);
+      const edgeId =
+        edgeLookup.get(`${selectedPersonId}_${s}`) || edgeLookup.get(`${s}_${selectedPersonId}`);
       if (edgeId) edgesSet.add(edgeId);
     }
 
-    // 4. Direct relatives: Siblings
+    // 4. Direct relatives: Siblings (children of same parents)
     const parents = parentMap.get(selectedPersonId) || [];
     for (const p of parents) {
       const siblings = childMap.get(p) || [];
@@ -164,41 +198,107 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
       }
     }
 
-    return { highlightedNodeIds: nodesSet, highlightedEdgeIds: edgesSet };
+    return {
+      highlightedNodeIds: nodesSet,
+      highlightedEdgeIds: edgesSet,
+    };
   }, [selectedPersonId, relationships]);
 
-  // Synchronize highlights to React Flow state
+  // Synchronize highlights and branch focus to React Flow state
   useEffect(() => {
     setNodes((nds) =>
-      nds.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          isHighlighted: highlightedNodeIds.has(node.id),
-        },
-      }))
+      nds.map((node) => {
+        const isHighlighted = highlightedNodeIds.has(node.id);
+        const isSelected = selectedPersonId === node.id;
+        let opacity = 1;
+
+        if (isBranchFocused && highlightedNodeIds.size > 0) {
+          opacity = isHighlighted ? 1 : 0.22;
+        }
+
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            opacity,
+            transition: "opacity 0.3s ease, transform 0.3s ease",
+          },
+          data: {
+            ...node.data,
+            isHighlighted: isHighlighted || isSelected,
+          },
+        };
+      })
     );
+
     setEdges((eds) =>
       eds.map((edge) => {
         const isHighlighted = highlightedEdgeIds.has(edge.id);
         const isSpouse = (edge.data as { type?: string } | undefined)?.type === "SPOUSE";
+        const isDisputed = (edge.data as { status?: string } | undefined)?.status === "DISPUTED";
+        const isPending = (edge.data as { status?: string } | undefined)?.status === "PENDING_APPROVAL";
+
+        let stroke = isSpouse ? "#f43f5e" : "#d4af37";
+        let strokeDasharray = isSpouse ? "5,5" : undefined;
+        let opacity = 1;
+
+        if (isDisputed) {
+          stroke = "#f59e0b";
+          strokeDasharray = "4,4";
+        } else if (isPending) {
+          stroke = "#38bdf8";
+          strokeDasharray = "6,3";
+        }
+
+        if (isHighlighted) {
+          stroke = "#fbbf24";
+        }
+
+        if (isBranchFocused && highlightedEdgeIds.size > 0) {
+          opacity = isHighlighted ? 1 : 0.15;
+        }
+
         return {
           ...edge,
-          animated: isHighlighted || isSpouse,
-          style: isHighlighted
-            ? { ...edge.style, stroke: "#fbbf24", strokeWidth: 3.5 }
-            : {
-                ...edge.style,
-                stroke: isSpouse ? "#f43f5e" : "#d4af37",
-                strokeWidth: 2,
-              },
+          animated: isHighlighted || isSpouse || isDisputed || isPending,
+          style: {
+            ...edge.style,
+            stroke,
+            strokeDasharray,
+            strokeWidth: isHighlighted ? 3.5 : 2,
+            opacity,
+            transition: "opacity 0.3s ease",
+          },
         };
       })
     );
-  }, [highlightedNodeIds, highlightedEdgeIds, setNodes, setEdges]);
+  }, [highlightedNodeIds, highlightedEdgeIds, isBranchFocused, selectedPersonId, setNodes, setEdges]);
+
+  // Compute Siblings for active profile based on verified relationships
+  const activeProfileSiblings = useMemo(() => {
+    if (!activeProfile || activeProfile.parents.length === 0) return [];
+
+    const parentIds = new Set(activeProfile.parents.map((p) => p.id));
+    const siblingIds = new Set<string>();
+
+    for (const rel of relationships) {
+      if (
+        rel.status === "CONFIRMED" &&
+        (rel.type === "PARENT_CHILD" || rel.type === "ADOPTIVE_PARENT_CHILD") &&
+        parentIds.has(rel.personId) &&
+        rel.relatedPersonId !== activeProfile.id
+      ) {
+        siblingIds.add(rel.relatedPersonId);
+      }
+    }
+
+    return people.filter((p) => siblingIds.has(p.id));
+  }, [activeProfile, relationships, people]);
 
   // Load Tree Data
   useEffect(() => {
+    let isMounted = true;
+
     async function loadTree() {
       try {
         setLoading(true);
@@ -209,25 +309,33 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
         }
 
         const data = await res.json();
+        if (!isMounted) return;
+
         const treePeople: TreePerson[] = data.people || [];
         const treeRels: TreeRelationship[] = data.relationships || [];
 
         setPeople(treePeople);
         setRelationships(treeRels);
         setUserRole(data.userRole || "MEMBER");
+        setLinkedPersonId(data.linkedPersonId || null);
 
         const layout = computeTreeLayout(treePeople, treeRels);
         setNodes(layout.nodes);
         setEdges(layout.edges);
       } catch (err: unknown) {
+        if (!isMounted) return;
         const e = err as Error;
         setErrorMsg(e.message || "An unexpected error occurred.");
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     loadTree();
+
+    return () => {
+      isMounted = false;
+    };
   }, [spaceId, setNodes, setEdges]);
 
   // Load Individual Profile Details on Node Click
@@ -257,17 +365,57 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
     [spaceId]
   );
 
-  // Focus and Fly to Person on Search
-  const handleSelectSearchResult = (personId: string) => {
-    const targetNode = nodes.find((n) => n.id === personId);
-    if (targetNode) {
-      reactFlowInstance.setCenter(
-        targetNode.position.x + 110,
-        targetNode.position.y + 70,
-        { zoom: 1.2, duration: 800 }
-      );
-      setSelectedPersonId(personId);
-      handleNodeClick({} as React.MouseEvent, targetNode);
+  // Focus and Fly to Person on Search or Link
+  const handleSelectSearchResult = useCallback(
+    (personId: string) => {
+      const targetNode = nodes.find((n) => n.id === personId);
+      if (targetNode) {
+        reactFlowInstance.setCenter(
+          targetNode.position.x + 110,
+          targetNode.position.y + 70,
+          { zoom: 1.25, duration: 800 }
+        );
+        setSelectedPersonId(personId);
+        handleNodeClick({} as React.MouseEvent, targetNode);
+      }
+    },
+    [nodes, reactFlowInstance, handleNodeClick]
+  );
+
+  // Handle URL focusPersonId once nodes are loaded
+  useEffect(() => {
+    if (focusParamId && nodes.length > 0 && !loading) {
+      const timer = setTimeout(() => {
+        handleSelectSearchResult(focusParamId);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [focusParamId, nodes.length, loading, handleSelectSearchResult]);
+
+  // Action: "Find Myself" in Tree
+  const handleFindMyself = () => {
+    if (!linkedPersonId) return;
+    handleSelectSearchResult(linkedPersonId);
+  };
+
+  // Action: "Focus Branch" toggle
+  const handleToggleFocusBranch = () => {
+    if (!selectedPersonId) return;
+    const nextState = !isBranchFocused;
+    setIsBranchFocused(nextState);
+
+    if (nextState) {
+      // Zoom gently to fit highlighted lineage nodes
+      const targetNodes = nodes.filter((n) => highlightedNodeIds.has(n.id));
+      if (targetNodes.length > 0) {
+        reactFlowInstance.fitView({
+          nodes: targetNodes,
+          duration: 800,
+          padding: 0.25,
+        });
+      }
+    } else {
+      reactFlowInstance.fitView({ duration: 600, padding: 0.15 });
     }
   };
 
@@ -325,7 +473,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
         throw new Error(data.error || "Failed to update profile");
       }
 
-      // Update local state
+      // Update active profile state
       setActiveProfile((prev) =>
         prev
           ? {
@@ -340,7 +488,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
           : null
       );
 
-      // Re-layout nodes
+      // Re-layout and update local state
       setPeople((prev) =>
         prev.map((p) =>
           p.id === activeProfile.id
@@ -381,14 +529,14 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
   }, [searchQuery, people]);
 
   return (
-    <div className="min-h-screen bg-[#0c0f14] flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-[#0c0f14] flex flex-col overflow-hidden font-khmer">
       <Navigation activeSpaceId={spaceId} />
 
       {/* Top Controls Toolbar */}
-      <div className="bg-[#0f141f]/90 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-3 z-30">
+      <div className="bg-[#0f141f]/95 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 z-30">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] flex items-center justify-center shrink-0">
               <TreePine className="w-4 h-4" />
             </div>
             <div>
@@ -396,10 +544,33 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                 {t.nav.tree}
               </span>
               <span className="text-[10px] text-slate-400">
-                {people.length} verified relatives in lineage
+                {people.length} {t.tree.relativesInTree}
               </span>
             </div>
           </div>
+
+          {/* Find Myself Button */}
+          {linkedPersonId && (
+            <button
+              type="button"
+              onClick={handleFindMyself}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-900 bg-[#d4af37] hover:bg-[#e5c158] transition-all flex items-center gap-1.5 shadow-sm shadow-[#d4af37]/20 cursor-pointer"
+              title="Locate your node in the tree"
+            >
+              <LocateFixed className="w-3.5 h-3.5" />
+              <span>{t.tree.findMyself}</span>
+            </button>
+          )}
+
+          {/* Fit Screen Button */}
+          <button
+            type="button"
+            onClick={() => reactFlowInstance.fitView({ duration: 600, padding: 0.15 })}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Fit view"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Live Search & Kinship Actions */}
@@ -412,7 +583,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search relatives in tree..."
+              placeholder={t.tree.searchPlaceholder}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#d4af37]"
             />
 
@@ -457,31 +628,39 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-950 bg-gradient-to-r from-[#fef08a] via-[#d4af37] to-[#b45309] hover:opacity-95 transition-all flex items-center gap-1.5 shrink-0 shadow-sm shadow-[#d4af37]/20 cursor-pointer"
           >
             <GitCompare className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Kinship Calculator</span>
+            <span className="hidden sm:inline">
+              {language === "km" ? "គណនាទំនាក់ទំនង" : "Kinship Calculator"}
+            </span>
           </button>
         </div>
       </div>
 
       {/* Main Canvas Area */}
-      <div className="flex-1 relative w-full h-[calc(100vh-120px)]">
+      <div className="flex-1 relative w-full h-[calc(100vh-112px)]">
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center bg-[#0c0f14] z-20">
             <div className="text-center">
               <div className="w-10 h-10 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs text-slate-400">Loading interactive family tree...</p>
+              <p className="text-xs text-slate-400">
+                {language === "km"
+                  ? "កំពុងផ្ទុកដើមឈើគ្រួសារអន្តរកម្ម..."
+                  : "Loading interactive family tree..."}
+              </p>
             </div>
           </div>
         ) : errorMsg ? (
           <div className="absolute inset-0 flex items-center justify-center bg-[#0c0f14] p-4 z-20">
             <div className="heritage-card p-6 max-w-md text-center">
               <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-white mb-2">Error Loading Tree</h3>
+              <h3 className="text-base font-bold text-white mb-2">
+                {language === "km" ? "បញ្ហាក្នុងការផ្ទុកដើមឈើ" : "Error Loading Tree"}
+              </h3>
               <p className="text-xs text-slate-400 mb-4">{errorMsg}</p>
               <Link
                 href="/dashboard"
                 className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#d4af37] text-slate-950"
               >
-                Return to Dashboard
+                {language === "km" ? "ត្រឡប់ទៅដែនគ្រួសារ" : "Return to Dashboard"}
               </Link>
             </div>
           </div>
@@ -490,18 +669,17 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
             <div className="heritage-card p-8 max-w-md text-center">
               <TreePine className="w-12 h-12 text-[#d4af37] mx-auto mb-4" />
               <h3 className="text-lg font-bold font-heritage text-white mb-2">
-                Empty Family Tree
+                {t.tree.emptyTreeTitle}
               </h3>
               <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-                This space has no relatives recorded yet. Onboard the founding patriarch or
-                matriarch to establish the lineage tree.
+                {t.tree.emptyTreeDesc}
               </p>
               <Link
                 href={`/spaces/${spaceId}/onboarding`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#d4af37] text-slate-950 hover:bg-[#e5c158] transition-all shadow-md shadow-[#d4af37]/20"
               >
                 <Plus className="w-4 h-4" />
-                <span>Establish Founding Ancestor</span>
+                <span>{t.tree.establishFoundingBtn}</span>
               </Link>
             </div>
           </div>
@@ -525,7 +703,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
 
         {/* Selected Person Profile Drawer */}
         {(activeProfile || profileLoading) && (
-          <div className="absolute top-4 right-4 bottom-4 w-full max-w-sm heritage-card-elevated p-6 z-40 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right-4 duration-200">
+          <div className="absolute top-4 right-4 bottom-4 w-full max-w-sm heritage-card-elevated p-5 sm:p-6 z-40 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right-4 duration-200">
             {profileLoading ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
                 <div className="w-8 h-8 border-2 border-[#d4af37] border-t-transparent rounded-full animate-spin mb-3" />
@@ -534,6 +712,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
             ) : activeProfile ? (
               <>
                 <div>
+                  {/* Drawer Header */}
                   <div className="flex items-start justify-between pb-4 border-b border-slate-800 mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full border-2 border-[#d4af37]/40 overflow-hidden bg-slate-900 flex items-center justify-center shrink-0">
@@ -565,11 +744,42 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                       onClick={() => {
                         setActiveProfile(null);
                         setSelectedPersonId(null);
+                        setIsBranchFocused(false);
                       }}
                       className="text-slate-400 hover:text-white p-1"
                     >
                       <X className="w-5 h-5" />
                     </button>
+                  </div>
+
+                  {/* Branch Focus & Status Badges */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={handleToggleFocusBranch}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all border ${
+                        isBranchFocused
+                          ? "bg-[#d4af37] text-slate-950 border-[#d4af37] shadow-sm shadow-[#d4af37]/20"
+                          : "bg-slate-900 text-slate-300 border-slate-700 hover:border-[#d4af37]"
+                      }`}
+                    >
+                      <GitBranch className="w-3.5 h-3.5" />
+                      <span>{t.tree.focusBranch}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {activeProfile.isVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px]">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>{t.tree.verifiedBadge}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px]">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>{t.tree.pendingBadge}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {isEditing ? (
@@ -666,15 +876,20 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                     <div className="space-y-4 text-xs">
                       <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300">
                         <div>
-                          <span className="text-[10px] text-slate-500 block">Life Status</span>
+                          <span className="text-[10px] text-slate-500 block">
+                            {language === "km" ? "ស្ថានភាព" : "Life Status"}
+                          </span>
                           <span className="font-semibold text-slate-200">
-                            {activeProfile.isLiving ? "Living" : "Deceased"}
+                            {activeProfile.isLiving ? t.tree.living : t.tree.deceased}
                           </span>
                         </div>
                         <div>
-                          <span className="text-[10px] text-slate-500 block">Years</span>
+                          <span className="text-[10px] text-slate-500 block">
+                            {language === "km" ? "ឆ្នាំ" : "Years"}
+                          </span>
                           <span className="font-semibold text-slate-200">
-                            {activeProfile.birthYear || "—"} - {activeProfile.deathYear || (activeProfile.isLiving ? "Pres." : "—")}
+                            {activeProfile.birthYear || "—"} -{" "}
+                            {activeProfile.deathYear || (activeProfile.isLiving ? "Pres." : "—")}
                           </span>
                         </div>
                       </div>
@@ -682,21 +897,23 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                       {activeProfile.biography && (
                         <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-300 leading-relaxed text-[11px]">
                           <span className="text-[10px] text-[#d4af37] uppercase tracking-wider font-semibold block mb-1">
-                            Biography
+                            {language === "km" ? "ប្រវត្តិរូបសង្ខេប" : "Biography"}
                           </span>
                           {activeProfile.biography}
                         </div>
                       )}
 
-                      {/* Immediate Kinship Relations */}
+                      {/* Verified Kinship Relationships */}
                       <div className="space-y-3">
                         {/* Parents */}
                         <div>
                           <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block mb-1">
-                            Parents ({activeProfile.parents.length})
+                            {language === "km" ? "ឪពុកម្តាយ" : "Parents"} ({activeProfile.parents.length})
                           </span>
                           {activeProfile.parents.length === 0 ? (
-                            <p className="text-[11px] text-slate-500 italic">No parents recorded</p>
+                            <p className="text-[11px] text-slate-500 italic">
+                              {language === "km" ? "មិនទាន់មានទិន្នន័យឪពុកម្តាយ" : "No parents recorded"}
+                            </p>
                           ) : (
                             <div className="space-y-1">
                               {activeProfile.parents.map((parent) => (
@@ -706,7 +923,39 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                                   onClick={() => handleSelectSearchResult(parent.id)}
                                   className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-[#d4af37]/20 border border-slate-800 flex items-center justify-between text-[11px] text-slate-200"
                                 >
-                                  <span>{parent.firstName} {parent.lastName}</span>
+                                  <span>
+                                    {parent.firstName} {parent.lastName}{" "}
+                                    {parent.khmerName && `(${parent.khmerName})`}
+                                  </span>
+                                  <ArrowRight className="w-3 h-3 text-[#d4af37]" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Siblings */}
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block mb-1">
+                            {t.tree.siblings} ({activeProfileSiblings.length})
+                          </span>
+                          {activeProfileSiblings.length === 0 ? (
+                            <p className="text-[11px] text-slate-500 italic">
+                              {language === "km" ? "មិនមានបងប្អូនកត់ត្រាឡើយ" : "No siblings recorded"}
+                            </p>
+                          ) : (
+                            <div className="space-y-1">
+                              {activeProfileSiblings.map((sib) => (
+                                <button
+                                  key={sib.id}
+                                  type="button"
+                                  onClick={() => handleSelectSearchResult(sib.id)}
+                                  className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-[#d4af37]/20 border border-slate-800 flex items-center justify-between text-[11px] text-slate-200"
+                                >
+                                  <span>
+                                    {sib.firstName} {sib.lastName}{" "}
+                                    {sib.khmerName && `(${sib.khmerName})`}
+                                  </span>
                                   <ArrowRight className="w-3 h-3 text-[#d4af37]" />
                                 </button>
                               ))}
@@ -717,10 +966,12 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                         {/* Children */}
                         <div>
                           <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block mb-1">
-                            Children ({activeProfile.children.length})
+                            {language === "km" ? "កូនៗ" : "Children"} ({activeProfile.children.length})
                           </span>
                           {activeProfile.children.length === 0 ? (
-                            <p className="text-[11px] text-slate-500 italic">No children recorded</p>
+                            <p className="text-[11px] text-slate-500 italic">
+                              {language === "km" ? "មិនទាន់មានកូនកត់ត្រា" : "No children recorded"}
+                            </p>
                           ) : (
                             <div className="space-y-1">
                               {activeProfile.children.map((child) => (
@@ -730,7 +981,10 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                                   onClick={() => handleSelectSearchResult(child.id)}
                                   className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-[#d4af37]/20 border border-slate-800 flex items-center justify-between text-[11px] text-slate-200"
                                 >
-                                  <span>{child.firstName} {child.lastName}</span>
+                                  <span>
+                                    {child.firstName} {child.lastName}{" "}
+                                    {child.khmerName && `(${child.khmerName})`}
+                                  </span>
                                   <ArrowRight className="w-3 h-3 text-[#d4af37]" />
                                 </button>
                               ))}
@@ -742,7 +996,7 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                         {activeProfile.spouses.length > 0 && (
                           <div>
                             <span className="text-[10px] text-rose-400 uppercase tracking-wider font-semibold block mb-1">
-                              Spouses / Partners ({activeProfile.spouses.length})
+                              {language === "km" ? "ស្វាមី/ភរិយា" : "Spouses / Partners"} ({activeProfile.spouses.length})
                             </span>
                             <div className="space-y-1">
                               {activeProfile.spouses.map((spouse) => (
@@ -752,13 +1006,56 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                                   onClick={() => handleSelectSearchResult(spouse.id)}
                                   className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-rose-950/40 border border-rose-900/40 flex items-center justify-between text-[11px] text-slate-200"
                                 >
-                                  <span>{spouse.firstName} {spouse.lastName}</span>
+                                  <span>
+                                    {spouse.firstName} {spouse.lastName}{" "}
+                                    {spouse.khmerName && `(${spouse.khmerName})`}
+                                  </span>
                                   <ArrowRight className="w-3 h-3 text-rose-400" />
                                 </button>
                               ))}
                             </div>
                           </div>
                         )}
+
+                        {/* Memories & Archives Section */}
+                        <div className="pt-2 border-t border-slate-800">
+                          <span className="text-[10px] text-[#d4af37] uppercase tracking-wider font-semibold block mb-2 flex items-center gap-1.5">
+                            <ImageIcon className="w-3 h-3" />
+                            <span>{t.tree.memories}</span>
+                          </span>
+
+                          {activeProfile.memories && activeProfile.memories.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              {activeProfile.memories.map((m) => (
+                                <div
+                                  key={m.id}
+                                  className="group relative rounded-lg border border-slate-800 overflow-hidden bg-slate-950 hover:border-[#d4af37]/60 transition-all"
+                                >
+                                  <div className="aspect-video w-full overflow-hidden bg-slate-900">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={m.mediaUrl}
+                                      alt={m.title}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                    />
+                                  </div>
+                                  <div className="p-1.5">
+                                    <p className="text-[10px] font-semibold text-slate-200 truncate">
+                                      {m.title}
+                                    </p>
+                                    {m.year && (
+                                      <p className="text-[9px] text-slate-500">{m.year}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-500 italic">
+                              {t.tree.noMemories}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -776,17 +1073,21 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                     className="w-full py-2 px-3 rounded-lg text-xs font-medium text-slate-200 bg-slate-900 hover:bg-[#d4af37] hover:text-slate-950 transition-colors flex items-center justify-center gap-1.5 border border-slate-700"
                   >
                     <GitCompare className="w-3.5 h-3.5" />
-                    <span>Calculate Kinship With...</span>
+                    <span>
+                      {language === "km"
+                        ? "គណនាទំនាក់ទំនងជាមួយ..."
+                        : "Calculate Kinship With..."}
+                    </span>
                   </button>
 
                   {(userRole === "OWNER" || userRole === "ADMIN") && !isEditing && (
                     <button
                       type="button"
                       onClick={() => setIsEditing(true)}
-                      className="w-full py-2 px-3 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-slate-950 hover:bg-slate-900 transition-colors flex items-center justify-center gap-1.5"
+                      className="w-full py-2 px-3 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-slate-950 hover:bg-slate-900 transition-colors flex items-center justify-center gap-1.5 border border-slate-800"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit Relative Record</span>
+                      <span>{language === "km" ? "កែប្រែប្រវត្តិរូប" : "Edit Record"}</span>
                     </button>
                   )}
                 </div>
@@ -798,116 +1099,111 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
 
       {/* Kinship Calculator Modal */}
       {showKinshipModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="heritage-card-elevated max-w-lg w-full p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto">
-            <button
-              type="button"
-              onClick={() => setShowKinshipModal(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] flex items-center justify-center">
-                <GitCompare className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold font-heritage text-white">
-                  Familial Kinship Calculator
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="heritage-card-elevated max-w-lg w-full p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-white">
+                <GitCompare className="w-5 h-5 text-[#d4af37]" />
+                <h3 className="text-base font-bold font-heritage">
+                  {language === "km" ? "គណនាចំណងញាតិពង្សាវតារ" : "Ancestral Kinship Calculator"}
                 </h3>
-                <p className="text-[11px] text-slate-400">
-                  Calculates exact genealogical kinship strictly using verified database edges.
-                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowKinshipModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {kinshipError && (
-              <div className="my-3 p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-200">
-                {kinshipError}
-              </div>
-            )}
-
-            <div className="space-y-4 my-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  First Relative (Anchor)
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  {language === "km" ? "សាច់ញាតិទី ១" : "Person 1"}
                 </label>
                 <select
                   value={kinshipP1}
                   onChange={(e) => setKinshipP1(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white"
                 >
-                  <option value="">Select first person...</option>
+                  <option value="">
+                    {language === "km" ? "-- ជ្រើសរើសមនុស្សទី ១ --" : "-- Select Person 1 --"}
+                  </option>
                   {people.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName} {p.khmerName ? `(${p.khmerName})` : ""}{" "}
-                      {p.birthYear ? `[b. ${p.birthYear}]` : ""}
+                      {p.firstName} {p.lastName} {p.khmerName ? `(${p.khmerName})` : ""}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Second Relative (Target)
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  {language === "km" ? "សាច់ញាតិទី ២" : "Person 2"}
                 </label>
                 <select
                   value={kinshipP2}
                   onChange={(e) => setKinshipP2(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white"
                 >
-                  <option value="">Select second person...</option>
+                  <option value="">
+                    {language === "km" ? "-- ជ្រើសរើសមនុស្សទី ២ --" : "-- Select Person 2 --"}
+                  </option>
                   {people.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName} {p.khmerName ? `(${p.khmerName})` : ""}{" "}
-                      {p.birthYear ? `[b. ${p.birthYear}]` : ""}
+                      {p.firstName} {p.lastName} {p.khmerName ? `(${p.khmerName})` : ""}
                     </option>
                   ))}
                 </select>
               </div>
+            </div>
 
+            <div className="flex justify-end">
               <button
                 type="button"
+                disabled={!kinshipP1 || !kinshipP2 || calculatingKinship}
                 onClick={handleCalculateKinship}
-                disabled={calculatingKinship || !kinshipP1 || !kinshipP2}
-                className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md shadow-[#d4af37]/20"
+                className="px-5 py-2.5 rounded-xl font-semibold text-xs text-slate-950 bg-[#d4af37] hover:bg-[#e5c158] transition-all disabled:opacity-40"
               >
-                {calculatingKinship ? (
-                  <span>Tracing lineage...</span>
-                ) : (
-                  <>
-                    <GitCompare className="w-4 h-4" />
-                    <span>Calculate Relationship</span>
-                  </>
-                )}
+                {calculatingKinship
+                  ? language === "km" ? "កំពុងគណនា..." : "Calculating..."
+                  : language === "km" ? "គណនាទំនាក់ទំនង" : "Calculate Relationship"}
               </button>
             </div>
 
-            {/* Kinship Result Presentation */}
+            {kinshipError && (
+              <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-300 text-xs">
+                {kinshipError}
+              </div>
+            )}
+
             {kinshipResult && (
-              <div className="p-4 rounded-xl bg-slate-900 border border-[#d4af37]/40 space-y-4 animate-in fade-in duration-200">
-                <div className="text-center pb-3 border-b border-slate-800">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-widest block mb-1">
-                    Genealogical Relationship
+              <div className="p-4 rounded-xl bg-slate-900/90 border border-[#d4af37]/30 space-y-3">
+                <div className="flex items-center gap-2 text-[#d4af37]">
+                  <Sparkles className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {language === "km"
+                      ? kinshipResult.relationshipNameKm
+                      : kinshipResult.relationshipNameEn}
                   </span>
-                  <h4 className="text-xl font-bold font-heritage gold-gradient-text">
-                    {kinshipResult.relationshipNameEn}
-                  </h4>
-                  <p className="text-sm font-khmer text-slate-300 mt-0.5">
-                    {kinshipResult.relationshipNameKm}
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
                   <div className="p-2.5 rounded-lg bg-slate-950">
-                    <span className="text-[10px] text-slate-500 block">Degrees of Separation</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {language === "km" ? "គម្លាតជំហាន" : "Degrees of Separation"}
+                    </span>
                     <span className="font-semibold text-white">
-                      {kinshipResult.degreeOfSeparation >= 0 ? `${kinshipResult.degreeOfSeparation} step(s)` : "Disconnected"}
+                      {kinshipResult.degreeOfSeparation >= 0
+                        ? `${kinshipResult.degreeOfSeparation} step(s)`
+                        : "Disconnected"}
                     </span>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-950">
-                    <span className="text-[10px] text-slate-500 block">Generational Shift</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {language === "km" ? "គម្លាតជំនាន់" : "Generational Shift"}
+                    </span>
                     <span className="font-semibold text-white">
                       {kinshipResult.generationDifference === 0
                         ? "Same Generation"
@@ -916,11 +1212,10 @@ function FamilyTreeCanvas({ spaceId }: { spaceId: string }) {
                   </div>
                 </div>
 
-                {/* Step Path */}
                 {kinshipResult.path.length > 0 && (
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-2 font-semibold">
-                      Verified Relationship Path:
+                      {language === "km" ? "ផ្លូវទំនាក់ទំនងផ្ទៀងផ្ទាត់រួច៖" : "Verified Relationship Path:"}
                     </span>
                     <div className="space-y-1.5 text-xs">
                       {kinshipResult.path.map((step, idx) => (

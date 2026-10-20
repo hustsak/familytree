@@ -37,8 +37,14 @@ body {
   letter-spacing: 0.05em;
 }
 
-.font-khmer {
-  font-family: "Battambang", "Noto Serif Khmer", "Khmer OS System", serif;
+.font-khmer,
+[lang="km"],
+html[lang="km"] body,
+html[lang="km"] input,
+html[lang="km"] button,
+html[lang="km"] select,
+html[lang="km"] textarea {
+  font-family: var(--font-khmer-siemreap), "Khmer OS Siemreap", "Siemreap", "Khmer OS", -apple-system, sans-serif;
 }
 
 /* Heritage Gold Gradients & Accents */
