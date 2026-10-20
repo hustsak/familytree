@@ -3,6 +3,7 @@ import { requireSpaceRole, recordAuditLog } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role, Gender } from "@prisma/client";
 import { z } from "zod";
+import { sanitizePersonForViewer, verifyCsrfOrigin } from "@/lib/security";
 
 const updatePersonSchema = z.object({
   firstName: z.string().min(1).max(60).optional(),
@@ -12,6 +13,8 @@ const updatePersonSchema = z.object({
   birthYear: z.number().int().min(1800).max(2026).optional().nullable(),
   deathYear: z.number().int().min(1800).max(2026).optional().nullable(),
   isLiving: z.boolean().optional(),
+  isRestricted: z.boolean().optional(),
+  isVerified: z.boolean().optional(),
   photoUrl: z.string().url().optional().nullable(),
   biography: z.string().max(3000).optional().nullable(),
 });
@@ -23,7 +26,7 @@ export async function GET(
 ) {
   try {
     const { spaceId, personId } = await params;
-    await requireSpaceRole(spaceId, Role.MEMBER);
+    const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
 
     const person = await prisma.person.findUnique({
       where: { id: personId },
@@ -47,6 +50,11 @@ export async function GET(
             },
           },
         },
+        taggedMemories: {
+          include: {
+            memory: true,
+          },
+        },
       },
     });
 
@@ -68,12 +76,23 @@ export async function GET(
       ...person.relationshipsAsTarget.filter((r) => r.type === "SPOUSE").map((r) => r.person),
     ];
 
+    const memories = person.taggedMemories.map((tm) => tm.memory);
+
+    // Apply Phase 5 privacy controls for living relatives
+    const sanitized = sanitizePersonForViewer(
+      person,
+      membership.role,
+      membership.personId,
+      user.id
+    );
+
     return NextResponse.json({
       person: {
-        ...person,
+        ...sanitized,
         parents,
         children,
         spouses,
+        memories,
       },
     });
   } catch (error: unknown) {
@@ -93,6 +112,15 @@ export async function PATCH(
   try {
     const { spaceId, personId } = await params;
     const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
+
+    const origin = req.headers.get("origin");
+    const referer = req.headers.get("referer");
+    if (!verifyCsrfOrigin(origin, referer)) {
+      return NextResponse.json(
+        { error: "Forbidden: Cross-site request rejected." },
+        { status: 403 }
+      );
+    }
 
     const person = await prisma.person.findUnique({
       where: { id: personId },
@@ -123,16 +151,26 @@ export async function PATCH(
       );
     }
 
+    // Verification status can ONLY be toggled by Council (OWNER/ADMIN)
+    if (parsed.data.isVerified !== undefined && !isCouncil) {
+      return NextResponse.json(
+        { error: "Unauthorized: Only Council Administrators can change verification status." },
+        { status: 403 }
+      );
+    }
+
     const updated = await prisma.person.update({
       where: { id: personId },
       data: {
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
         khmerName: parsed.data.khmerName,
-        gender: parsed.data.gender as Gender,
+        gender: parsed.data.gender as Gender | undefined,
         birthYear: parsed.data.birthYear,
         deathYear: parsed.data.deathYear,
         isLiving: parsed.data.isLiving,
+        isRestricted: parsed.data.isRestricted,
+        isVerified: parsed.data.isVerified,
         photoUrl: parsed.data.photoUrl,
         biography: parsed.data.biography,
       },
@@ -146,6 +184,8 @@ export async function PATCH(
       entityId: personId,
       metadata: {
         updatedFields: Object.keys(parsed.data),
+        isRestricted: updated.isRestricted,
+        isVerified: updated.isVerified,
       },
     });
 

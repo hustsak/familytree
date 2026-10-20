@@ -14,6 +14,7 @@ import {
   Compass,
   Users2,
   Scroll,
+  BookOpen,
 } from "lucide-react";
 
 interface NavigationProps {
@@ -56,6 +57,12 @@ export function Navigation({ userEmail, activeSpaceId, activeSpaceName }: Naviga
       href: activeSpaceId ? `/spaces/${activeSpaceId}/relatives` : "#",
       label: t.nav.directory,
       icon: Users2,
+      show: !!activeSpaceId,
+    },
+    {
+      href: activeSpaceId ? `/spaces/${activeSpaceId}/memories` : "#",
+      label: t.nav.archive,
+      icon: BookOpen,
       show: !!activeSpaceId,
     },
     {

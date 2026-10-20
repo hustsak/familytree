@@ -19,7 +19,7 @@ export interface KinshipRelationship {
   personId: string; // Parent or Spouse 1
   relatedPersonId: string; // Child or Spouse 2
   type: "PARENT_CHILD" | "SPOUSE" | "ADOPTIVE_PARENT_CHILD";
-  status: "CONFIRMED" | "PENDING_APPROVAL" | "FLAGGED_AMBIGUOUS";
+  status: "CONFIRMED" | "PENDING_APPROVAL" | "FLAGGED_AMBIGUOUS" | "DISPUTED";
 }
 
 export interface KinshipResult {

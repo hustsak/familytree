@@ -19,7 +19,7 @@ export interface TreeRelationship {
   personId: string;
   relatedPersonId: string;
   type: "PARENT_CHILD" | "SPOUSE" | "ADOPTIVE_PARENT_CHILD";
-  status: "CONFIRMED" | "PENDING_APPROVAL" | "FLAGGED_AMBIGUOUS";
+  status: "CONFIRMED" | "PENDING_APPROVAL" | "FLAGGED_AMBIGUOUS" | "DISPUTED";
 }
 
 export interface LayoutOptions {

@@ -39,6 +39,7 @@ enum RelationStatus {
   CONFIRMED
   PENDING_APPROVAL
   FLAGGED_AMBIGUOUS
+  DISPUTED
 }
 
 enum ConfidenceLevel {
@@ -61,6 +62,20 @@ enum RequestStatus {
   CLARIFICATION_NEEDED
 }
 
+enum MemoryType {
+  PHOTO
+  DOCUMENT
+  STORY
+  EVENT
+  AUDIO
+}
+
+enum MemoryStatus {
+  PUBLISHED
+  PENDING_REVIEW
+  ARCHIVED
+}
+
 model FamilySpace {
   id          String   @id @default(cuid())
   name        String
@@ -75,6 +90,7 @@ model FamilySpace {
   invitations        Invitation[]
   connectionRequests ConnectionRequest[]
   auditLogs          AuditLog[]
+  memories           Memory[]
 
   @@map("family_spaces")
 }
@@ -96,6 +112,7 @@ model User {
   connectionRequests ConnectionRequest[] @relation("UserConnectionRequests")
   reviewedRequests   ConnectionRequest[] @relation("ReviewedConnectionRequests")
   auditLogs          AuditLog[]          @relation("UserAuditLogs")
+  memories           Memory[]
 
   @@map("users")
 }
@@ -135,13 +152,15 @@ model Person {
   photoUrl    String?
   biography   String?
   isVerified  Boolean   @default(true)
+  isRestricted Boolean  @default(false) // Phase 5: Privacy control for living relative
   createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  space       FamilySpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  createdBy   User?        @relation("CreatedPeople", fields: [createdById], references: [id], onDelete: SetNull)
-  spaceMember SpaceMember?
+  space          FamilySpace       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy      User?             @relation("CreatedPeople", fields: [createdById], references: [id], onDelete: SetNull)
+  spaceMember    SpaceMember?
+  taggedMemories MemoryPersonTag[]
 
   // Relationships where this person is the subject (e.g. parent or partner 1)
   relationshipsAsSubject Relationship[] @relation("SubjectPerson")
@@ -239,3 +258,51 @@ model AuditLog {
   @@index([spaceId, createdAt])
   @@map("audit_logs")
 }
+
+model Memory {
+  id               String       @id @default(cuid())
+  spaceId          String
+  title            String
+  titleKm          String?
+  description      String?
+  descriptionKm    String?
+  type             MemoryType   @default(PHOTO)
+  status           MemoryStatus @default(PUBLISHED)
+  storagePath      String?      // Supabase Storage private object key
+  mediaUrl         String?      // Fallback or external URL if applicable
+  fileSize         Int?
+  mimeType         String?
+  originalFileName String?
+  eventDate        DateTime?
+  eventYear        Int?
+  location         String?
+  branchTag        String?      // e.g. "Paternal", "Maternal", or branch name
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  space        FamilySpace       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  taggedPeople MemoryPersonTag[]
+
+  @@index([spaceId, type])
+  @@index([spaceId, eventYear])
+  @@index([spaceId, status])
+  @@map("memories")
+}
+
+model MemoryPersonTag {
+  id        String   @id @default(cuid())
+  memoryId  String
+  personId  String
+  createdAt DateTime @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([memoryId, personId])
+  @@index([memoryId])
+  @@index([personId])
+  @@map("memory_person_tags")
+}
+

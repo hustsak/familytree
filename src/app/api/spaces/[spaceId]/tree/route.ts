@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSpaceRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { sanitizePersonForViewer } from "@/lib/security";
 
 export async function GET(
   req: NextRequest,
@@ -9,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { spaceId } = await params;
-    const { membership } = await requireSpaceRole(spaceId, Role.MEMBER);
+    const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
 
     // Fetch all relatives in this space
     const people = await prisma.person.findMany({
@@ -17,13 +18,18 @@ export async function GET(
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
 
+    // Apply Phase 5 privacy controls for living relatives
+    const sanitizedPeople = people.map((p) =>
+      sanitizePersonForViewer(p, membership.role, membership.personId, user.id)
+    );
+
     // Fetch all confirmed and pending relationships in this space
     const relationships = await prisma.relationship.findMany({
       where: { spaceId },
     });
 
     return NextResponse.json({
-      people,
+      people: sanitizedPeople,
       relationships,
       userRole: membership.role,
       linkedPersonId: membership.personId,
