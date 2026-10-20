@@ -1,0 +1,241 @@
+// Prisma schema for Family Heritage
+// Multi-tenant private family spaces with strict authorization and DAG lineage
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+}
+
+enum RelationType {
+  PARENT_CHILD
+  SPOUSE
+  ADOPTIVE_PARENT_CHILD
+}
+
+enum RelationStatus {
+  CONFIRMED
+  PENDING_APPROVAL
+  FLAGGED_AMBIGUOUS
+}
+
+enum ConfidenceLevel {
+  DIRECT
+  INFERRED
+  USER_PROPOSED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CLARIFICATION_NEEDED
+}
+
+model FamilySpace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members            SpaceMember[]
+  people             Person[]
+  relationships      Relationship[]
+  invitations        Invitation[]
+  connectionRequests ConnectionRequest[]
+  auditLogs          AuditLog[]
+
+  @@map("family_spaces")
+}
+
+model User {
+  id        String   @id // Corresponds to Supabase Auth UUID (auth.uid())
+  email     String   @unique
+  fullName  String
+  avatarUrl String?
+  language  String   @default("en") // "en" or "km"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spaceMemberships   SpaceMember[]
+  createdPeople      Person[]            @relation("CreatedPeople")
+  createdRelations   Relationship[]      @relation("CreatedRelationships")
+  approvedRelations  Relationship[]      @relation("ApprovedRelationships")
+  sentInvitations    Invitation[]        @relation("SentInvitations")
+  connectionRequests ConnectionRequest[] @relation("UserConnectionRequests")
+  reviewedRequests   ConnectionRequest[] @relation("ReviewedConnectionRequests")
+  auditLogs          AuditLog[]          @relation("UserAuditLogs")
+
+  @@map("users")
+}
+
+model SpaceMember {
+  id        String       @id @default(cuid())
+  spaceId   String
+  userId    String
+  personId  String?      @unique // Linked Person record in the tree (optional until connected)
+  role      Role         @default(MEMBER)
+  status    MemberStatus @default(ACTIVE)
+  joinedAt  DateTime     @default(now())
+
+  space  FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  person Person?     @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@unique([spaceId, userId])
+  @@index([spaceId, role])
+  @@map("space_members")
+}
+
+model Person {
+  id          String    @id @default(cuid())
+  spaceId     String
+  firstName   String
+  lastName    String
+  khmerName   String?
+  gender      Gender    @default(UNKNOWN)
+  birthYear   Int?
+  birthDate   DateTime?
+  birthPlace  String?
+  deathYear   Int?
+  deathDate   DateTime?
+  deathPlace  String?
+  isLiving    Boolean   @default(true)
+  photoUrl    String?
+  biography   String?
+  isVerified  Boolean   @default(true)
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  space       FamilySpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("CreatedPeople", fields: [createdById], references: [id], onDelete: SetNull)
+  spaceMember SpaceMember?
+
+  // Relationships where this person is the subject (e.g. parent or partner 1)
+  relationshipsAsSubject Relationship[] @relation("SubjectPerson")
+  // Relationships where this person is the target (e.g. child or partner 2)
+  relationshipsAsTarget  Relationship[] @relation("TargetPerson")
+
+  @@index([spaceId])
+  @@index([spaceId, lastName, firstName])
+  @@index([spaceId, birthYear])
+  @@map("people")
+}
+
+model Relationship {
+  id              String          @id @default(cuid())
+  spaceId         String
+  personId        String          // Parent in PARENT_CHILD, or Partner 1 in SPOUSE
+  relatedPersonId String          // Child in PARENT_CHILD, or Partner 2 in SPOUSE
+  type            RelationType
+  status          RelationStatus  @default(CONFIRMED)
+  confidence      ConfidenceLevel @default(DIRECT)
+  notes           String?
+  createdById     String?
+  approvedById    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  space         FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  person        Person      @relation("SubjectPerson", fields: [personId], references: [id], onDelete: Cascade)
+  relatedPerson Person      @relation("TargetPerson", fields: [relatedPersonId], references: [id], onDelete: Cascade)
+  createdBy     User?       @relation("CreatedRelationships", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy    User?       @relation("ApprovedRelationships", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  // Enforce unique relationship per space, type, and node pair (prevents duplicate edges)
+  @@unique([spaceId, personId, relatedPersonId, type])
+  @@index([spaceId, personId])
+  @@index([spaceId, relatedPersonId])
+  @@map("relationships")
+}
+
+model Invitation {
+  id                 String           @id @default(cuid())
+  spaceId            String
+  email              String
+  role               Role             @default(MEMBER)
+  token              String           @unique
+  suggestedPersonId  String?
+  suggestedRelation  String?
+  status             InvitationStatus @default(PENDING)
+  expiresAt          DateTime
+  invitedById        String
+  createdAt          DateTime         @default(now())
+
+  space     FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  invitedBy User        @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, email])
+  @@index([token])
+  @@map("invitations")
+}
+
+model ConnectionRequest {
+  id                 String        @id @default(cuid())
+  spaceId            String
+  userId             String
+  proposedPersonData Json
+  anchorPersonId     String
+  relationType       String        // e.g. "PARENT", "GRANDPARENT", "GREAT_GRANDPARENT"
+  status             RequestStatus @default(PENDING)
+  adminNotes         String?
+  reviewedById       String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  space      FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user       User        @relation("UserConnectionRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User?       @relation("ReviewedConnectionRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([spaceId, status])
+  @@map("connection_requests")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  spaceId    String
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  space FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  actor User        @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, createdAt])
+  @@map("audit_logs")
+}

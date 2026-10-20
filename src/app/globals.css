@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 14 17 23;
+    --card: 20 26 36;
+    --card-foreground: 248 250 252;
+    --popover: 20 26 36;
+    --popover-foreground: 248 250 252;
+    --primary: 212 175 55;
+    --primary-foreground: 14 17 23;
+    --secondary: 30 38 52;
+    --secondary-foreground: 226 232 240;
+    --muted: 30 41 59;
+    --muted-foreground: 148 163 184;
+    --accent: 212 175 55;
+    --accent-foreground: 14 17 23;
+    --destructive: 239 68 68;
+    --destructive-foreground: 248 250 252;
+    --border: 45 55 72;
+    --input: 30 38 52;
+    --ring: 212 175 55;
+  }
+}
+
+body {
+  background-color: #0c0f14;
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Heritage Typography & Khmeric styling */
+.font-heritage {
+  font-family: "Cinzel", "Playfair Display", "Times New Roman", serif;
+  letter-spacing: 0.05em;
+}
+
+.font-khmer {
+  font-family: "Battambang", "Noto Serif Khmer", "Khmer OS System", serif;
+}
+
+/* Heritage Gold Gradients & Accents */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #fef08a 0%, #d4af37 50%, #b45309 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-border {
+  border-color: rgba(212, 175, 55, 0.28);
+}
+
+.gold-glow {
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.15);
+}
+
+.gold-glow-hover:hover {
+  box-shadow: 0 0 35px rgba(212, 175, 55, 0.3);
+  border-color: rgba(212, 175, 55, 0.6);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glassmorphism Heritage Surfaces */
+.heritage-card {
+  background: linear-gradient(145deg, rgba(22, 28, 40, 0.85) 0%, rgba(14, 18, 26, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 1rem;
+}
+
+.heritage-card-elevated {
+  background: linear-gradient(145deg, rgba(28, 36, 52, 0.9) 0%, rgba(18, 23, 34, 0.98) 100%);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  border-radius: 1.25rem;
+}
+
+/* Heritage Pattern Background */
+.heritage-bg-pattern {
+  background-image: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08) 0%, transparent 60%),
+                    radial-gradient(circle at 100% 100%, rgba(30, 58, 138, 0.12) 0%, transparent 50%),
+                    radial-gradient(circle at 0% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 50%);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0c0f14;
+}
+::-webkit-scrollbar-thumb {
+  background: #252e42;
+  border-radius: 4px;
+  border: 1px solid rgba(212, 175, 55, 0.15);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
+}
