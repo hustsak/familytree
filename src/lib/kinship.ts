@@ -260,13 +260,13 @@ export function calculateKinship(
       if (upCount === 3) {
         return {
           en: isFemale ? "Great-Grandmother" : isMale ? "Great-Grandfather" : "Great-Grandparent",
-          km: isFemale ? "អ្នកទួតស្រី" : isMale ? "អ្នកទួតប្រុស" : "អ្នកទួត",
+          km: isFemale ? "ទួតស្រី" : isMale ? "ទួតប្រុស" : "ទួត",
         };
       }
       if (upCount === 4) {
         return {
           en: isFemale ? "2x Great-Grandmother" : isMale ? "2x Great-Grandfather" : "2x Great-Grandparent",
-          km: isFemale ? "អ្នកលួតស្រី" : isMale ? "អ្នកលួតប្រុស" : "អ្នកលួត",
+          km: isFemale ? "លួតស្រី" : isMale ? "លួតប្រុស" : "លួត",
         };
       }
       return {
