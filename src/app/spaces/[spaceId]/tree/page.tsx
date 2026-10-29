@@ -2243,7 +2243,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
           <div
             className={`${
               mobileViewMode === "CARDS" ? "hidden sm:block" : "block"
-            } absolute top-0 left-0 bottom-0 pointer-events-none z-20 w-44 overflow-hidden select-none font-khmer`}
+            } absolute top-0 left-0 bottom-0 pointer-events-none z-20 w-24 overflow-hidden select-none font-khmer`}
           >
             {Object.entries(generationYMap)
               .filter(([genStr]) => Number(genStr) < 7)
@@ -2264,15 +2264,15 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                   <div
                     key={genNum}
                     style={{ top: `${screenY}px` }}
-                    className={`absolute left-2.5 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm backdrop-blur-xs text-[10.5px] font-bold pointer-events-auto transition-transform hover:scale-105 ${
+                    className={`absolute left-1.5 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-full border shadow-2xs backdrop-blur-xs text-[8.5px] font-semibold pointer-events-auto transition-transform hover:scale-105 ${
                       isRootGen
-                        ? "bg-amber-50/95 dark:bg-amber-950/90 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 ring-2 ring-amber-400/20"
-                        : "bg-white/95 dark:bg-slate-900/90 border-[#dbe7f5] dark:border-slate-700 text-[#1c2e48] dark:text-slate-200"
+                        ? "bg-amber-50/90 border-amber-300/80 text-amber-800"
+                        : "bg-white/85 border-[#dbe7f5] text-[#354c68]"
                     }`}
                     title={`ជំនាន់ទី ${toKhmerNumber(genNum + 1)} (${isHoriz ? "ទម្រង់ផ្តេក" : "ទម្រង់បញ្ឈរ"})`}
                   >
                     <span
-                      className={`w-2 h-2 rounded-full ${
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                         isRootGen
                           ? "bg-amber-500"
                           : isHoriz
@@ -2280,10 +2280,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                           : "bg-sky-500"
                       }`}
                     />
-                    <span>ជំនាន់ទី {toKhmerNumber(genNum + 1)}</span>
-                    <span className="text-[8.5px] font-normal px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
-                      {isHoriz ? "ផ្តេក" : "បញ្ឈរ"}
-                    </span>
+                    <span>ជំនាន់ {toKhmerNumber(genNum + 1)}</span>
                   </div>
                 );
               })}
