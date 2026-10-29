@@ -668,7 +668,19 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         setPeople(treePeople);
         setRelationships(treeRels);
         setUserRole(data.userRole || "MEMBER");
-        setLinkedPersonId(data.linkedPersonId || null);
+        setLinkedPersonId((prev) => {
+          let savedId = prev;
+          try {
+            savedId = localStorage.getItem("family_linked_person_id") || prev;
+          } catch {
+            // ignore
+          }
+          if (savedId && treePeople.some((p) => p.id === savedId)) return savedId;
+          if (data.linkedPersonId && treePeople.some((p) => p.id === data.linkedPersonId)) {
+            return data.linkedPersonId;
+          }
+          return null;
+        });
 
         const activeCollapsed = collapsedNodeIds;
         setCollapsedNodeIds(activeCollapsed);
@@ -724,7 +736,19 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         setPeople(treePeople);
         setRelationships(treeRels);
         setUserRole(data.userRole || "MEMBER");
-        setLinkedPersonId(data.linkedPersonId || null);
+        setLinkedPersonId((prev) => {
+          let savedId = prev;
+          try {
+            savedId = localStorage.getItem("family_linked_person_id") || prev;
+          } catch {
+            // ignore
+          }
+          if (savedId && treePeople.some((p) => p.id === savedId)) return savedId;
+          if (data.linkedPersonId && treePeople.some((p) => p.id === data.linkedPersonId)) {
+            return data.linkedPersonId;
+          }
+          return null;
+        });
 
         // Default view: Fully expanded descendant tree matching the template poster
         const defaultCollapsed = new Set<string>();

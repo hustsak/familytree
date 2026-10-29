@@ -173,12 +173,18 @@ export async function GET(req: NextRequest) {
         where: { spaceId: space.id },
       });
 
+      const cookieLinkedId = req.cookies.get("family_linked_person_id")?.value;
+      const validLinkedId =
+        cookieLinkedId && people.some((p) => p.id === cookieLinkedId)
+          ? cookieLinkedId
+          : null;
+
       return NextResponse.json({
         space: { id: space.id, name: space.name },
         people,
         relationships,
         userRole: "OWNER",
-        linkedPersonId: people.find((p) => p.gender === "MALE")?.id || people[0]?.id || null,
+        linkedPersonId: validLinkedId,
       });
     }
 

@@ -578,58 +578,108 @@ export function MobileRelationshipExplorer({
                       ? ` - ${activePerson.deathYear}`
                       : ""}
                   </p>
+                  {/* Direct Family Role Summary (Spouse / Parent / Children) */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    {spouses.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-400/25 border border-rose-300/40 text-rose-100 text-[10.5px] font-bold">
+                        <span>
+                          {activePerson.gender === "FEMALE"
+                            ? language === "km"
+                              ? `💍 ភរិយារបស់ ${spouses.map(getDisplayName).join(", ")}`
+                              : `💍 Wife of ${spouses.map(getDisplayName).join(", ")}`
+                            : activePerson.gender === "MALE"
+                            ? language === "km"
+                              ? `💍 ស្វាមីរបស់ ${spouses.map(getDisplayName).join(", ")}`
+                              : `💍 Husband of ${spouses.map(getDisplayName).join(", ")}`
+                            : `💍 ${spouses.map(getDisplayName).join(", ")}`}
+                        </span>
+                      </span>
+                    )}
+                    {children.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-400/20 border border-emerald-300/35 text-emerald-100 text-[10.5px] font-bold">
+                        <span>
+                          {activePerson.gender === "FEMALE"
+                            ? language === "km"
+                              ? `ម្តាយរបស់កូន ${toKhmerNumber(children.length)} នាក់`
+                              : `Mother of ${children.length}`
+                            : activePerson.gender === "MALE"
+                            ? language === "km"
+                              ? `ឪពុករបស់កូន ${toKhmerNumber(children.length)} នាក់`
+                              : `Father of ${children.length}`
+                            : language === "km"
+                            ? `មានកូន ${toKhmerNumber(children.length)} នាក់`
+                            : `${children.length} children`}
+                        </span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Automatic Kinship Banner: "How is this person related to ME?" */}
-              <div className="mt-3 pt-2.5 border-t border-white/15 flex items-center justify-between gap-2">
-                {linkedPersonId ? (
-                  linkedPersonId === activePerson.id ? (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-200 font-semibold">
-                      <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
-                      <span>
-                        {language === "km"
-                          ? "នេះជាប្រវត្តិរូបផ្ទាល់ខ្លួនរបស់អ្នកនៅក្នុងមែកធាងគ្រួសារ"
-                          : "This is your personal profile in the family tree"}
-                      </span>
-                    </div>
-                  ) : kinshipToMe && kinshipToMe.determined ? (
-                    <div className="flex items-center justify-between w-full gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/15">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
-                        <div className="text-xs">
-                          <span className="text-blue-100 block text-[10px]">
-                            {language === "km"
-                              ? `ត្រូវជាអ្វីនឹងអ្នក (${getDisplayName(personMap.get(linkedPersonId)!)})៖`
-                              : "Relationship to You:"}
+              {/* Automatic Kinship Banner: "How is this person related to ME?" with inline identity selector */}
+              <div className="mt-3 pt-2.5 border-t border-white/15 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2 bg-white/10 rounded-xl px-3 py-2 border border-white/15">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                    <div className="text-xs min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1 text-blue-100 text-[10.5px] mb-0.5">
+                        <span>
+                          {language === "km" ? "ត្រូវជាអ្វីនឹងអ្នក (" : "Relation to you ("}
+                        </span>
+                        <select
+                          value={linkedPersonId || ""}
+                          onChange={(e) => {
+                            if (e.target.value) onClaimIdentity(e.target.value);
+                          }}
+                          className="bg-white/15 text-amber-200 font-bold rounded px-1.5 py-0.5 text-[10.5px] border border-white/25 focus:outline-none cursor-pointer max-w-[140px] truncate"
+                          title={language === "km" ? "ជ្រើសរើសឈ្មោះរបស់អ្នក" : "Select your identity"}
+                        >
+                          <option value="" className="text-slate-900">
+                            {language === "km" ? "-- ជ្រើសរើសឈ្មោះអ្នក --" : "-- Select Yourself --"}
+                          </option>
+                          {people.map((p) => (
+                            <option key={p.id} value={p.id} className="text-slate-900">
+                              {getDisplayName(p)}
+                            </option>
+                          ))}
+                        </select>
+                        <span>)៖</span>
+                      </div>
+                      {linkedPersonId ? (
+                        linkedPersonId === activePerson.id ? (
+                          <span className="font-extrabold text-amber-300 text-sm">
+                            {language === "km" ? "ខ្លួនអ្នកផ្ទាល់ (Self)" : "Yourself (Self)"}
                           </span>
+                        ) : kinshipToMe && kinshipToMe.determined ? (
                           <span className="font-extrabold text-amber-300 text-sm">
                             {language === "km"
                               ? kinshipToMe.relationshipNameKm
                               : kinshipToMe.relationshipNameEn}
                           </span>
-                        </div>
-                      </div>
+                        ) : (
+                          <span className="text-blue-200 text-xs">
+                            {language === "km" ? "សាច់ញាតិក្នុងគ្រួសារ" : "Family Relative"}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-amber-200 text-[11px] font-semibold">
+                          {language === "km"
+                            ? "សូមជ្រើសរើសឈ្មោះអ្នកខាងលើ ឬចុច «ជាខ្លួនខ្ញុំ»"
+                            : "Select your name above or tap 'Me'"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {linkedPersonId &&
+                    linkedPersonId !== activePerson.id &&
+                    kinshipToMe &&
+                    kinshipToMe.determined && (
                       <span className="px-2 py-0.5 rounded-lg bg-white/15 text-[10px] font-semibold shrink-0">
                         {kinshipToMe.degreeOfSeparation}{" "}
                         {language === "km" ? "ជំហាន" : "steps"}
                       </span>
-                    </div>
-                  ) : null
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onClaimIdentity(activePerson.id)}
-                    className="w-full py-1.5 px-3 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/40 text-amber-100 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Award className="w-3.5 h-3.5 text-amber-300" />
-                    <span>
-                      {language === "km"
-                        ? "ចុចទីនេះប្រសិនបើនេះជាខ្លួនអ្នក (កំណត់ចំណងញាតិស្វ័យប្រវត្តិ)"
-                        : "Tap if this is You (Auto-show relationships to you)"}
-                    </span>
-                  </button>
-                )}
+                    )}
+                </div>
               </div>
 
               {/* Action Buttons Bar inside Hero Card */}
@@ -1064,3 +1114,4 @@ export function MobileRelationshipExplorer({
     </div>
   );
 }
+

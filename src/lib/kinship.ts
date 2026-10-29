@@ -238,89 +238,248 @@ export function calculateKinship(
   let relEn = "Relative";
   let relKm = "សាច់ញាតិ";
 
-  // Check direct lineage (pure PARENT or pure CHILD)
-  const allParent = steps.every((s) => s === "PARENT");
-  const allChild = steps.every((s) => s === "CHILD");
+  // Helper to classify a pure (upCount, downCount) lineage into English & Khmer terms
+  function classifyBloodLineage(
+    upCount: number,
+    downCount: number,
+    asSpouseInLaw: boolean
+  ): { en: string; km: string } {
+    if (upCount > 0 && downCount === 0) {
+      if (upCount === 1) {
+        return {
+          en: isFemale ? "Mother" : isMale ? "Father" : "Parent",
+          km: isFemale ? "ម្តាយ" : isMale ? "ឪពុក" : "ឪពុកម្តាយ",
+        };
+      }
+      if (upCount === 2) {
+        return {
+          en: isFemale ? "Grandmother" : isMale ? "Grandfather" : "Grandparent",
+          km: isFemale ? "ជីដូន (យាយ)" : isMale ? "ជីតា (តា)" : "ជីដូនជីតា",
+        };
+      }
+      if (upCount === 3) {
+        return {
+          en: isFemale ? "Great-Grandmother" : isMale ? "Great-Grandfather" : "Great-Grandparent",
+          km: isFemale ? "អ្នកទួតស្រី" : isMale ? "អ្នកទួតប្រុស" : "អ្នកទួត",
+        };
+      }
+      if (upCount === 4) {
+        return {
+          en: isFemale ? "2x Great-Grandmother" : isMale ? "2x Great-Grandfather" : "2x Great-Grandparent",
+          km: isFemale ? "អ្នកលួតស្រី" : isMale ? "អ្នកលួតប្រុស" : "អ្នកលួត",
+        };
+      }
+      return {
+        en: `${upCount - 2}x Great-Grandparent`,
+        km: `បុព្វបុរស ${upCount} ជំនាន់`,
+      };
+    }
 
-  if (allParent) {
-    if (steps.length === 1) {
-      relEn = isFemale ? "Mother" : isMale ? "Father" : "Parent";
-      relKm = isFemale ? "ម្តាយ" : isMale ? "ឪពុក" : "ឪពុកម្តាយ";
-    } else if (steps.length === 2) {
-      relEn = isFemale ? "Grandmother" : isMale ? "Grandfather" : "Grandparent";
-      relKm = isFemale ? "ជីដូន (យាយ)" : isMale ? "ជីតា (តា)" : "ជីដូនជីតា";
-    } else if (steps.length === 3) {
-      relEn = isFemale ? "Great-Grandmother" : isMale ? "Great-Grandfather" : "Great-Grandparent";
-      relKm = isFemale ? "អ្នកទួតស្រី" : isMale ? "អ្នកទួតប្រុស" : "អ្នកទួត";
-    } else {
-      relEn = `${steps.length - 2}x Great-Grandparent`;
-      relKm = `បុព្វបុរស ${steps.length} ជំនាន់`;
+    if (upCount === 0 && downCount > 0) {
+      if (downCount === 1) {
+        if (asSpouseInLaw) {
+          return {
+            en: isFemale ? "Daughter-in-Law" : isMale ? "Son-in-Law" : "Child-in-Law",
+            km: isFemale ? "កូនប្រសារស្រី" : isMale ? "កូនប្រសារប្រុស" : "កូនប្រសារ",
+          };
+        }
+        return {
+          en: isFemale ? "Daughter" : isMale ? "Son" : "Child",
+          km: isFemale ? "កូនស្រី" : isMale ? "កូនប្រុស" : "កូន",
+        };
+      }
+      if (downCount === 2) {
+        if (asSpouseInLaw) {
+          return {
+            en: isFemale ? "Granddaughter-in-Law" : isMale ? "Grandson-in-Law" : "Grandchild-in-Law",
+            km: isFemale ? "ចៅប្រសារស្រី" : isMale ? "ចៅប្រសារប្រុស" : "ចៅប្រសារ",
+          };
+        }
+        return {
+          en: isFemale ? "Granddaughter" : isMale ? "Grandson" : "Grandchild",
+          km: isFemale ? "ចៅស្រី" : isMale ? "ចៅប្រុស" : "ចៅ",
+        };
+      }
+      if (downCount === 3) {
+        if (asSpouseInLaw) {
+          return {
+            en: isFemale ? "Great-Granddaughter-in-Law" : isMale ? "Great-Grandson-in-Law" : "Great-Grandchild-in-Law",
+            km: isFemale ? "ចៅទួតប្រសារស្រី" : isMale ? "ចៅទួតប្រសារប្រុស" : "ចៅទួតប្រសារ",
+          };
+        }
+        return {
+          en: isFemale ? "Great-Granddaughter" : isMale ? "Great-Grandson" : "Great-Grandchild",
+          km: isFemale ? "ចៅទួតស្រី" : isMale ? "ចៅទួតប្រុស" : "ចៅទួត",
+        };
+      }
+      return {
+        en: `${downCount - 2}x Great-Grandchild`,
+        km: `កូនចៅជំនាន់ទី ${downCount}`,
+      };
     }
-  } else if (allChild) {
-    if (steps.length === 1) {
-      relEn = isFemale ? "Daughter" : isMale ? "Son" : "Child";
-      relKm = isFemale ? "កូនស្រី" : isMale ? "កូនប្រុស" : "កូន";
-    } else if (steps.length === 2) {
-      relEn = isFemale ? "Granddaughter" : isMale ? "Grandson" : "Grandchild";
-      relKm = isFemale ? "ចៅស្រី" : isMale ? "ចៅប្រុស" : "ចៅ";
-    } else if (steps.length === 3) {
-      relEn = isFemale ? "Great-Granddaughter" : isMale ? "Great-Grandson" : "Great-Grandchild";
-      relKm = isFemale ? "ចៅទួតស្រី" : isMale ? "ចៅទួតប្រុស" : "ចៅទួត";
-    } else {
-      relEn = `${steps.length - 2}x Great-Grandchild`;
-      relKm = `កូនចៅជំនាន់ទី ${steps.length}`;
+
+    // Collateral relatives (upCount > 0 && downCount > 0)
+    if (upCount === 1 && downCount === 1) {
+      if (asSpouseInLaw) {
+        return {
+          en: isFemale ? "Sister-in-Law" : isMale ? "Brother-in-Law" : "Sibling-in-Law",
+          km: isFemale ? "បងថ្លៃស្រី / ប្អូនថ្លៃស្រី" : isMale ? "បងថ្លៃប្រុស / ប្អូនថ្លៃប្រុស" : "បងប្អូនថ្លៃ",
+        };
+      }
+      return {
+        en: isFemale ? "Sister" : isMale ? "Brother" : "Sibling",
+        km: isFemale ? "បងប្អូនស្រី" : isMale ? "បងប្អូនប្រុស" : "បងប្អូនបង្កើត",
+      };
     }
-  } else if (steps.length === 2 && steps[0] === "PARENT" && steps[1] === "CHILD") {
-    // Sibling: Up to parent, down to child
-    relEn = isFemale ? "Sister" : isMale ? "Brother" : "Sibling";
-    relKm = isFemale ? "បងប្អូនស្រី" : isMale ? "បងប្អូនប្រុស" : "បងប្អូនបង្កើត";
-  } else if (steps.length === 3 && steps[0] === "PARENT" && steps[1] === "PARENT" && steps[2] === "CHILD") {
-    // Aunt / Uncle: Up 2 (to grandparent), down 1 (parent's sibling)
-    relEn = isFemale ? "Aunt" : isMale ? "Uncle" : "Aunt/Uncle";
-    relKm = isFemale ? "មីង / អ៊ំស្រី" : isMale ? "ពូ / មា / អ៊ំប្រុស" : "មីងពូ";
-  } else if (steps.length === 3 && steps[0] === "PARENT" && steps[1] === "CHILD" && steps[2] === "CHILD") {
-    // Niece / Nephew: Up 1, down 2 (sibling's child)
-    relEn = isFemale ? "Niece" : isMale ? "Nephew" : "Niece/Nephew";
-    relKm = isFemale ? "ក្មួយស្រី" : isMale ? "ក្មួយប្រុស" : "ក្មួយ";
-  } else if (
-    steps.length === 4 &&
-    steps[0] === "PARENT" &&
-    steps[1] === "PARENT" &&
-    steps[2] === "CHILD" &&
-    steps[3] === "CHILD"
-  ) {
-    // First Cousin: Up to grandparents, down to cousin
-    relEn = "First Cousin";
-    relKm = "បងប្អូនជីដូនមួយ";
-  } else if (
-    steps.length === 6 &&
-    steps[0] === "PARENT" &&
-    steps[1] === "PARENT" &&
-    steps[2] === "PARENT" &&
-    steps[3] === "CHILD" &&
-    steps[4] === "CHILD" &&
-    steps[5] === "CHILD"
-  ) {
-    // Second Cousin: Up 3 to great-grandparent, down 3
-    relEn = "Second Cousin";
-    relKm = "បងប្អូនជីទួតមួយ";
-  } else if (steps.includes("SPOUSE")) {
-    if (genDiff === 0) {
-      relEn = isFemale ? "Sister-in-Law" : isMale ? "Brother-in-Law" : "In-Law";
-      relKm = isFemale ? "បងថ្លៃស្រី / ប្អូនថ្លៃស្រី" : isMale ? "បងថ្លៃប្រុស / ប្អូនថ្លៃប្រុស" : "បងប្អូនថ្លៃ";
-    } else if (genDiff === 1) {
-      relEn = isFemale ? "Daughter-in-Law" : isMale ? "Son-in-Law" : "Child-in-Law";
-      relKm = isFemale ? "កូនប្រសារស្រី" : isMale ? "កូនប្រសារប្រុស" : "កូនប្រសារ";
-    } else if (genDiff === -1) {
-      relEn = isFemale ? "Mother-in-Law" : isMale ? "Father-in-Law" : "Parent-in-Law";
-      relKm = isFemale ? "ម្តាយក្មេក" : isMale ? "ឪពុកក្មេក" : "ឪពុកម្តាយក្មេក";
+
+    if (upCount === 2 && downCount === 1) {
+      // Aunt / Uncle (including Aunt/Uncle by marriage when asSpouseInLaw is true)
+      return {
+        en: isFemale ? "Aunt" : isMale ? "Uncle" : "Aunt/Uncle",
+        km: isFemale ? "មីង / អ៊ំស្រី" : isMale ? "ពូ / មា / អ៊ំប្រុស" : "មីងពូ",
+      };
     }
-  } else if (genDiff > 0) {
-    relEn = `${Math.abs(genDiff)} Generations Descendant`;
-    relKm = `កូនចៅជំនាន់ក្រោយ (${Math.abs(genDiff)} ជំនាន់)`;
-  } else if (genDiff < 0) {
-    relEn = `${Math.abs(genDiff)} Generations Ancestor`;
-    relKm = `បុព្វការីជន (${Math.abs(genDiff)} ជំនាន់មុន)`;
+
+    if (upCount === 3 && downCount === 1) {
+      // Great-Aunt / Great-Uncle (grandparent's sibling or their spouse)
+      return {
+        en: isFemale ? "Great-Aunt" : isMale ? "Great-Uncle" : "Great-Aunt/Uncle",
+        km: isFemale ? "ជីដូន (យាយ)" : isMale ? "ជីតា (តា)" : "ជីដូនជីតា",
+      };
+    }
+
+    if (upCount === 1 && downCount === 2) {
+      // Niece / Nephew
+      if (asSpouseInLaw) {
+        return {
+          en: isFemale ? "Niece-in-Law" : isMale ? "Nephew-in-Law" : "Niece/Nephew-in-Law",
+          km: isFemale ? "ក្មួយប្រសារស្រី" : isMale ? "ក្មួយប្រសារប្រុស" : "ក្មួយប្រសារ",
+        };
+      }
+      return {
+        en: isFemale ? "Niece" : isMale ? "Nephew" : "Niece/Nephew",
+        km: isFemale ? "ក្មួយស្រី" : isMale ? "ក្មួយប្រុស" : "ក្មួយ",
+      };
+    }
+
+    if (upCount === 1 && downCount === 3) {
+      // Grand-Niece / Grand-Nephew (sibling's grandchild)
+      return {
+        en: isFemale ? "Grand-Niece" : isMale ? "Grand-Nephew" : "Grand-Niece/Nephew",
+        km: isFemale ? "ចៅស្រី" : isMale ? "ចៅប្រុស" : "ចៅ",
+      };
+    }
+
+    if (upCount === 2 && downCount === 2) {
+      // First Cousin
+      return {
+        en: asSpouseInLaw ? "First Cousin-in-Law" : "First Cousin",
+        km: asSpouseInLaw ? "បងប្អូនជីដូនមួយ (សាច់ថ្លៃ)" : "បងប្អូនជីដូនមួយ",
+      };
+    }
+
+    if (upCount === 3 && downCount === 2) {
+      // Parent's First Cousin (First Cousin Once Removed - older generation)
+      return {
+        en: isFemale ? "Aunt (Parent's Cousin)" : isMale ? "Uncle (Parent's Cousin)" : "Parent's Cousin",
+        km: isFemale ? "មីង / អ៊ំស្រី" : isMale ? "ពូ / មា / អ៊ំប្រុស" : "មីងពូ",
+      };
+    }
+
+    if (upCount === 2 && downCount === 3) {
+      // First Cousin's Child (First Cousin Once Removed - younger generation)
+      return {
+        en: isFemale ? "Niece (Cousin's Daughter)" : isMale ? "Nephew (Cousin's Son)" : "Cousin's Child",
+        km: isFemale ? "ក្មួយស្រី" : isMale ? "ក្មួយប្រុស" : "ក្មួយ",
+      };
+    }
+
+    if (upCount === 3 && downCount === 3) {
+      return {
+        en: "Second Cousin",
+        km: "បងប្អូនជីទួតមួយ",
+      };
+    }
+
+    const netGen = downCount - upCount;
+    if (netGen === 0) {
+      return {
+        en: "Extended Cousin",
+        km: "បងប្អូនសាច់ឆ្ងាយ",
+      };
+    }
+    if (netGen === -1) {
+      return {
+        en: isFemale ? "Extended Aunt" : isMale ? "Extended Uncle" : "Extended Aunt/Uncle",
+        km: isFemale ? "មីង / អ៊ំស្រី" : isMale ? "ពូ / មា / អ៊ំប្រុស" : "មីងពូ",
+      };
+    }
+    if (netGen === 1) {
+      return {
+        en: isFemale ? "Extended Niece" : isMale ? "Extended Nephew" : "Extended Niece/Nephew",
+        km: isFemale ? "ក្មួយស្រី" : isMale ? "ក្មួយប្រុស" : "ក្មួយ",
+      };
+    }
+    if (netGen < -1) {
+      return {
+        en: `${Math.abs(netGen)} Generations Elder Relative`,
+        km: isFemale ? "ជីដូន (យាយ)" : isMale ? "ជីតា (តា)" : `សាច់ញាតិជំនាន់មុន (${Math.abs(netGen)} ជំនាន់)`,
+      };
+    }
+    return {
+      en: `${netGen} Generations Younger Relative`,
+      km: isFemale ? "ចៅស្រី" : isMale ? "ចៅប្រុស" : `កូនចៅជំនាន់ក្រោយ (${netGen} ជំនាន់)`,
+    };
+  }
+
+  // Case A: Starts with SPOUSE (relatives of person1's own spouse)
+  if (steps[0] === "SPOUSE") {
+    const rest = steps.slice(1).filter((s) => s !== "SPOUSE");
+    const upCount = rest.filter((s) => s === "PARENT").length;
+    const downCount = rest.filter((s) => s === "CHILD").length;
+    const isStandardUpDown =
+      rest.slice(0, upCount).every((s) => s === "PARENT") &&
+      rest.slice(upCount).every((s) => s === "CHILD");
+
+    if (isStandardUpDown) {
+      if (upCount === 1 && downCount === 0) {
+        relEn = isFemale ? "Mother-in-Law" : isMale ? "Father-in-Law" : "Parent-in-Law";
+        relKm = isFemale ? "ម្តាយក្មេក" : isMale ? "ឪពុកក្មេក" : "ឪពុកម្តាយក្មេក";
+      } else if (upCount === 2 && downCount === 0) {
+        relEn = isFemale ? "Grandmother-in-Law" : isMale ? "Grandfather-in-Law" : "Grandparent-in-Law";
+        relKm = isFemale ? "ជីដូនក្មេក (យាយ)" : isMale ? "ជីតាក្មេក (តា)" : "ជីដូនជីតាក្មេក";
+      } else if (upCount === 1 && downCount === 1) {
+        relEn = isFemale ? "Sister-in-Law" : isMale ? "Brother-in-Law" : "Sibling-in-Law";
+        relKm = isFemale ? "បងថ្លៃស្រី / ប្អូនថ្លៃស្រី" : isMale ? "បងថ្លៃប្រុស / ប្អូនថ្លៃប្រុស" : "បងប្អូនថ្លៃ";
+      } else {
+        const classified = classifyBloodLineage(upCount, downCount, true);
+        relEn = classified.en;
+        relKm = classified.km;
+      }
+    }
+  } else {
+    // Case B: Starts with PARENT or CHILD (blood lineage, optionally ending with or crossing SPOUSE)
+    const endsWithSpouse = steps[steps.length - 1] === "SPOUSE";
+    const coreSteps = steps.filter((s) => s !== "SPOUSE");
+    let upCount = 0;
+    while (upCount < coreSteps.length && coreSteps[upCount] === "PARENT") {
+      upCount++;
+    }
+    const downSteps = coreSteps.slice(upCount);
+    const isStandardUpDown = downSteps.every((s) => s === "CHILD");
+    const downCount = downSteps.length;
+
+    if (isStandardUpDown && (upCount > 0 || downCount > 0)) {
+      const classified = classifyBloodLineage(upCount, downCount, endsWithSpouse);
+      relEn = classified.en;
+      relKm = classified.km;
+    } else if (genDiff > 0) {
+      relEn = `${Math.abs(genDiff)} Generations Descendant`;
+      relKm = `កូនចៅជំនាន់ក្រោយ (${Math.abs(genDiff)} ជំនាន់)`;
+    } else if (genDiff < 0) {
+      relEn = `${Math.abs(genDiff)} Generations Ancestor`;
+      relKm = `បុព្វការីជន (${Math.abs(genDiff)} ជំនាន់មុន)`;
+    }
   }
 
   // Construct visual readable path
