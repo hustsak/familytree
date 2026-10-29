@@ -18,8 +18,9 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { HeritagePersonNode, HeritageCoupleNode } from "@/components/tree/PersonNode";
+import { MobileRelationshipExplorer } from "@/components/tree/MobileRelationshipExplorer";
 import { computeTreeLayout, getGen3CollapsedNodeIds, TreePerson, TreeRelationship, BranchInfo } from "@/lib/tree-layout";
-import { KinshipResult } from "@/lib/kinship";
+import { KinshipResult, calculateKinship, KinshipPerson, KinshipRelationship } from "@/lib/kinship";
 import { useLanguage } from "@/lib/i18n/context";
 import {
   subscribeToTree,
@@ -127,6 +128,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
   const [isCompactLayout, setIsCompactLayout] = useState(true);
   const [focusedDescendantPersonId, setFocusedDescendantPersonId] = useState<string | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
+  const [mobileViewMode, setMobileViewMode] = useState<"CARDS" | "MAP">("CARDS");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isInitialFitDone = useRef(false);
 
@@ -532,6 +534,27 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
     return people.filter((p) => siblingIds.has(p.id));
   }, [activeProfile, relationships, people]);
 
+  // Automatic instant kinship calculation between user ("Me") and currently opened profile
+  const activeProfileKinshipToMe = useMemo(() => {
+    if (!activeProfile || !linkedPersonId || activeProfile.id === linkedPersonId) return null;
+    const kPeople: KinshipPerson[] = people.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      khmerName: p.khmerName,
+      gender: p.gender,
+    }));
+    const kRels: KinshipRelationship[] = relationships.map((r) => ({
+      id: r.id,
+      personId: r.personId,
+      relatedPersonId: r.relatedPersonId,
+      type: r.type,
+      status: r.status,
+    }));
+    const res = calculateKinship(linkedPersonId, activeProfile.id, kPeople, kRels);
+    return res.determined ? res : null;
+  }, [activeProfile, linkedPersonId, people, relationships]);
+
   // Ref to break circular closure in node callbacks
   const applyLayoutRef = useRef<
     (
@@ -852,6 +875,8 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         return next;
       });
 
+      setSelectedPersonId(personId);
+
       setTimeout(() => {
         const targetNode = nodes.find(
           (n) =>
@@ -866,12 +891,14 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
             targetNode.position.y + 65,
             { zoom: currentViewport.zoom, duration: 600 }
           );
-          setSelectedPersonId(personId);
-          handleNodeClick({} as React.MouseEvent, targetNode);
+          const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640;
+          if (!isSmallScreen || mobileViewMode === "MAP") {
+            handleNodeClick({} as React.MouseEvent, targetNode);
+          }
         }
       }, 100);
     },
-    [nodes, relationships, handleNodeClick]
+    [nodes, relationships, handleNodeClick, mobileViewMode]
   );
 
   // Handle URL focusPersonId once nodes are loaded
@@ -1916,6 +1943,44 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
             )}
           </div>
 
+          {/* Mobile View Switcher Pill (Relationships vs Tree Map) */}
+          <div className="flex sm:hidden items-center bg-[#eef5fc] p-0.5 rounded-full border border-[#dbe7f5] shrink-0">
+            <button
+              type="button"
+              onClick={() => setMobileViewMode("CARDS")}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                mobileViewMode === "CARDS"
+                  ? "bg-[#2f7de1] text-white shadow-xs"
+                  : "text-[#5b718a]"
+              }`}
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>{language === "km" ? "ខ្សែញាតិ" : "Relatives"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileViewMode("MAP");
+                setTimeout(() => {
+                  reactFlowRef.current?.fitView({
+                    padding: 0.08,
+                    minZoom: 0.15,
+                    maxZoom: 1.1,
+                    duration: 350,
+                  });
+                }, 80);
+              }}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                mobileViewMode === "MAP"
+                  ? "bg-[#2f7de1] text-white shadow-xs"
+                  : "text-[#5b718a]"
+              }`}
+            >
+              <TreePine className="w-3 h-3" />
+              <span>{language === "km" ? "ផែនទី" : "Map"}</span>
+            </button>
+          </div>
+
           {/* Desktop "Add member" Button: on mobile accessed through floating bottom dock */}
           {canAddRelative && (
             <button
@@ -1933,7 +1998,9 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
 
         {/* Quick Hierarchy Action Controls (Expand all, Collapse to Gen 3, Fit to screen) */}
         <div
-          className="absolute top-12 xs:top-14 sm:top-4 sm:left-[460px] z-30 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-2xl sm:rounded-full border border-[#dbe7f5] shadow-md font-khmer select-none"
+          className={`absolute top-12 xs:top-14 sm:top-4 sm:left-[460px] z-30 ${
+            mobileViewMode === "CARDS" ? "hidden sm:flex" : "flex"
+          } items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-2xl sm:rounded-full border border-[#dbe7f5] shadow-md font-khmer select-none`}
           style={{
             backgroundColor: "rgba(255, 255, 255, 0.94)",
             backdropFilter: "blur(10px)",
@@ -2095,56 +2162,89 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
             </div>
           </div>
         ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onNodeClick={handleNodeClick}
-            nodeTypes={nodeTypes}
-            defaultViewport={{ x: 80, y: 60, zoom: 0.85 }}
-            minZoom={0.15}
-            maxZoom={2.5}
-            zoomOnScroll={false}
-            zoomActivationKeyCode={["Control", "Meta"]}
-            zoomOnPinch={true}
-            zoomOnDoubleClick={false}
-            panOnScroll={false}
-            panOnDrag={true}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            preventScrolling={true}
-            className="w-full h-full bg-[#f2f8ff] tree-theme-light touch-none"
-            style={{ width: "100%", height: "100%" }}
-          >
-            <Background
-              color="#c6dcf2"
-              gap={24}
-              size={1.5}
-              style={{ opacity: 0.85 }}
-            />
-            {showMiniMap && (
-              <MiniMap
-                nodeColor={(n) => ((n.data as any)?.generation === 0 ? "#fbbf24" : "#2f7de1")}
-                maskColor="rgba(242, 248, 255, 0.75)"
-                style={{
-                  bottom: 80,
-                  right: 20,
-                  width: 170,
-                  height: 110,
-                  borderRadius: 12,
-                  border: "1px solid #dbe7f5",
-                  boxShadow: "0 4px 16px rgba(47, 125, 225, 0.12)",
-                }}
-              />
+          <>
+            {/* Mobile Easy Relationship Explorer (Default on mobile <640px when in CARDS mode) */}
+            {mobileViewMode === "CARDS" && (
+              <div className="sm:hidden absolute inset-0 z-20">
+                <MobileRelationshipExplorer
+                  people={people}
+                  relationships={relationships}
+                  selectedPersonId={selectedPersonId}
+                  linkedPersonId={linkedPersonId}
+                  language={language}
+                  canEdit={canEditActive}
+                  canDelete={canDeleteActive}
+                  onSelectPerson={(id) => setSelectedPersonId(id)}
+                  onOpenProfileDrawer={(id) => handleSelectPersonDirectly(id)}
+                  onEditPerson={(id) => handleEditPersonDirectly(id)}
+                  onDeletePerson={(id) => handleDeletePersonDirectly(id)}
+                  onAddRelative={(anchorId, relType) => handleOpenAddModal(anchorId, relType)}
+                  onClaimIdentity={(id) => handleClaimIdentity(id)}
+                  onSwitchToMap={(focusId) => {
+                    setMobileViewMode("MAP");
+                    if (focusId) {
+                      setTimeout(() => handleSelectSearchResult(focusId), 90);
+                    }
+                  }}
+                />
+              </div>
             )}
-          </ReactFlow>
+
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onNodeClick={handleNodeClick}
+              nodeTypes={nodeTypes}
+              defaultViewport={{ x: 80, y: 60, zoom: 0.85 }}
+              minZoom={0.15}
+              maxZoom={2.5}
+              zoomOnScroll={false}
+              zoomActivationKeyCode={["Control", "Meta"]}
+              zoomOnPinch={true}
+              zoomOnDoubleClick={false}
+              panOnScroll={false}
+              panOnDrag={true}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable={true}
+              preventScrolling={true}
+              className="w-full h-full bg-[#f2f8ff] tree-theme-light touch-none"
+              style={{ width: "100%", height: "100%" }}
+            >
+              <Background
+                color="#c6dcf2"
+                gap={24}
+                size={1.5}
+                style={{ opacity: 0.85 }}
+              />
+              {showMiniMap && (
+                <MiniMap
+                  nodeColor={(n) => ((n.data as any)?.generation === 0 ? "#fbbf24" : "#2f7de1")}
+                  maskColor="rgba(242, 248, 255, 0.75)"
+                  style={{
+                    bottom: 80,
+                    right: 20,
+                    width: 170,
+                    height: 110,
+                    borderRadius: 12,
+                    border: "1px solid #dbe7f5",
+                    boxShadow: "0 4px 16px rgba(47, 125, 225, 0.12)",
+                  }}
+                />
+              )}
+            </ReactFlow>
+          </>
         )}
 
         {/* Left-side Generation Labels (ជំនាន់ទី ១ ដល់ ជំនាន់ទី ៧) */}
         {Object.keys(generationYMap).length > 0 && (
-          <div className="absolute top-0 left-0 bottom-0 pointer-events-none z-20 w-44 overflow-hidden select-none font-khmer">
+          <div
+            className={`${
+              mobileViewMode === "CARDS" ? "hidden sm:block" : "block"
+            } absolute top-0 left-0 bottom-0 pointer-events-none z-20 w-44 overflow-hidden select-none font-khmer`}
+          >
             {Object.entries(generationYMap)
               .filter(([genStr]) => Number(genStr) < 7)
               .map(([genStr, canvasY]) => {
@@ -2191,7 +2291,11 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         )}
 
         {/* Floating Zoom & Navigation Toolbar (Shifted up on mobile to leave room for bottom dock) */}
-        <div className="absolute bottom-20 sm:bottom-6 right-3 sm:right-6 z-30 flex flex-col items-center gap-1.5 p-1.5 rounded-2xl bg-white/92 backdrop-blur-md border border-[#dbe7f5] shadow-xl shadow-[#2f7de1]/15 font-khmer select-none">
+        <div
+          className={`${
+            mobileViewMode === "CARDS" ? "hidden sm:flex" : "flex"
+          } absolute bottom-20 sm:bottom-6 right-3 sm:right-6 z-30 flex-col items-center gap-1.5 p-1.5 rounded-2xl bg-white/92 backdrop-blur-md border border-[#dbe7f5] shadow-xl shadow-[#2f7de1]/15 font-khmer select-none`}
+        >
           <button
             id="btn-center-root"
             type="button"
@@ -2270,27 +2374,51 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         <div
           className="sm:hidden fixed bottom-3 inset-x-3 z-30 flex items-center justify-around px-2 py-2 rounded-2xl border border-[#dbe7f5] shadow-2xl font-khmer select-none"
           style={{
-            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            backgroundColor: "rgba(255, 255, 255, 0.96)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
           }}
         >
-          {/* Overview / Fit */}
+          {/* Smart Relationship Explorer vs Tree Map Toggle */}
           <button
             type="button"
-            onClick={() =>
-              reactFlowInstance.fitView({
-                padding: 0.08,
-                minZoom: 0.15,
-                maxZoom: 1.1,
-                duration: 400,
-              })
-            }
-            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[#1c2e48] active:bg-[#ebf3fc] active:scale-95 transition-all text-center"
-            title="ទំហំពេញលេញ (Fit View)"
+            onClick={() => {
+              if (mobileViewMode === "CARDS") {
+                setMobileViewMode("MAP");
+                setTimeout(() => {
+                  reactFlowInstance.fitView({
+                    padding: 0.08,
+                    minZoom: 0.15,
+                    maxZoom: 1.1,
+                    duration: 400,
+                  });
+                }, 80);
+              } else {
+                setMobileViewMode("CARDS");
+              }
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all text-center ${
+              mobileViewMode === "CARDS"
+                ? "bg-[#ebf3fc] text-[#2f7de1]"
+                : "text-[#1c2e48] active:bg-[#ebf3fc]"
+            }`}
+            title="ប្តូរទម្រង់មើល (Switch View Mode)"
           >
-            <Maximize2 className="w-4.5 h-4.5 text-[#2f7de1]" />
-            <span className="text-[10px] font-semibold mt-0.5">{language === "km" ? "ទាំងអស់" : "Fit"}</span>
+            {mobileViewMode === "CARDS" ? (
+              <>
+                <TreePine className="w-4.5 h-4.5 text-[#2f7de1]" />
+                <span className="text-[10px] font-bold mt-0.5">
+                  {language === "km" ? "ផែនទីដើមឈើ" : "Tree Map"}
+                </span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4.5 h-4.5 text-[#2f7de1]" />
+                <span className="text-[10px] font-bold mt-0.5">
+                  {language === "km" ? "មើលខ្សែញាតិ" : "Relatives"}
+                </span>
+              </>
+            )}
           </button>
 
           {/* Jump to Myself */}
@@ -2390,6 +2518,17 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                               {`${activeProfile.lastName} ${activeProfile.firstName}`.trim()}
                             </p>
                           )}
+                        {/* Automatic Kinship Relationship Badge to Current User */}
+                        {activeProfileKinshipToMe && (
+                          <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-[10.5px] font-bold font-khmer">
+                            <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span>
+                              {language === "km"
+                                ? `ត្រូវជា ${activeProfileKinshipToMe.relationshipNameKm} របស់អ្នក`
+                                : `Your ${activeProfileKinshipToMe.relationshipNameEn}`}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
