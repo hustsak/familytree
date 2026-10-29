@@ -451,8 +451,8 @@ export function MobileRelationshipExplorer({
                   <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                   <h3 className="text-xs font-bold text-[#1c2e48] leading-relaxed py-0.5">
                     {language === "km"
-                      ? "⬆️ បុព្វការីជន (ឪពុកម្តាយ • ជីដូនជីតា • ទួត • លួត)"
-                      : "⬆️ Ancestors (Parents • Grandparents • Great-Grandparents)"}
+                      ? "បុព្វការីជន (ឪពុកម្តាយ • ជីដូនជីតា • ទួត • លួត)"
+                      : "Ancestors (Parents • Grandparents • Great-Grandparents)"}
                   </h3>
                 </div>
                 {parents.length < 2 && (
@@ -675,13 +675,13 @@ export function MobileRelationshipExplorer({
                         <span>
                           {activePerson.gender === "FEMALE"
                             ? language === "km"
-                              ? `💍 ភរិយារបស់ ${spouses.map(getDisplayName).join(", ")}`
-                              : `💍 Wife of ${spouses.map(getDisplayName).join(", ")}`
+                              ? `ភរិយារបស់ ${spouses.map(getDisplayName).join(", ")}`
+                              : `Wife of ${spouses.map(getDisplayName).join(", ")}`
                             : activePerson.gender === "MALE"
                             ? language === "km"
-                              ? `💍 ស្វាមីរបស់ ${spouses.map(getDisplayName).join(", ")}`
-                              : `💍 Husband of ${spouses.map(getDisplayName).join(", ")}`
-                            : `💍 ${spouses.map(getDisplayName).join(", ")}`}
+                              ? `ស្វាមីរបស់ ${spouses.map(getDisplayName).join(", ")}`
+                              : `Husband of ${spouses.map(getDisplayName).join(", ")}`
+                            : `${spouses.map(getDisplayName).join(", ")}`}
                         </span>
                       </span>
                     )}
@@ -787,8 +787,8 @@ export function MobileRelationshipExplorer({
                   onClick={() => onAddRelative(activePerson.id, "SPOUSE")}
                   className="py-2 px-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-white/20 active:scale-95 cursor-pointer leading-relaxed"
                 >
-                  <Heart className="w-3.5 h-3.5 text-rose-300 shrink-0" />
-                  <span>{language === "km" ? "+ ប្តី/ប្រពន្ធ" : "+ Spouse"}</span>
+                  <Plus className="w-3.5 h-3.5 text-sky-200 shrink-0" />
+                  <span>{language === "km" ? "ប្តី/ប្រពន្ធ" : "Spouse"}</span>
                 </button>
                 {canEdit && (
                   <button
@@ -829,11 +829,11 @@ export function MobileRelationshipExplorer({
               <div className="bg-white rounded-2xl border border-rose-200/90 p-3.5 shadow-xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                     <h3 className="text-xs font-bold text-[#1c2e48] leading-relaxed py-0.5">
                       {language === "km"
-                        ? `❤️ ស្វាមី / ភរិយា (${toKhmerNumber(spouses.length)})`
-                        : `❤️ Spouse / Partner (${spouses.length})`}
+                        ? `ស្វាមី / ភរិយា (${toKhmerNumber(spouses.length)})`
+                        : `Spouse / Partner (${spouses.length})`}
                     </h3>
                   </div>
                   <button
@@ -860,7 +860,7 @@ export function MobileRelationshipExplorer({
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-300 flex items-center justify-center text-rose-600 font-bold text-xs shrink-0">
-                            <Heart className="w-4 h-4" />
+                            <User className="w-4 h-4" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <span className="inline-block px-2 py-0.5 rounded bg-rose-200/80 text-rose-900 text-[9.5px] font-bold leading-relaxed">
@@ -911,8 +911,8 @@ export function MobileRelationshipExplorer({
                       <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
                       <h3 className="text-xs font-bold text-[#1c2e48] leading-relaxed py-0.5">
                         {language === "km"
-                          ? `🤝 បងប្អូនបង្កើតរួមឪពុកម្តាយ (${toKhmerNumber(siblings.length)} នាក់)`
-                          : `🤝 Siblings (${siblings.length})`}
+                          ? `បងប្អូនបង្កើតរួមឪពុកម្តាយ (${toKhmerNumber(siblings.length)} នាក់)`
+                          : `Siblings (${siblings.length})`}
                       </h3>
                     </div>
                     <button
@@ -970,11 +970,11 @@ export function MobileRelationshipExplorer({
             <div className="bg-white rounded-2xl border border-emerald-200/90 p-3.5 shadow-xs space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Baby className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                   <h3 className="text-xs font-bold text-[#1c2e48] leading-relaxed py-0.5">
                     {language === "km"
-                      ? `⬇️ កូនបង្កើត (${toKhmerNumber(children.length)} នាក់)`
-                      : `⬇️ Children (${children.length})`}
+                      ? `កូនបង្កើត (${toKhmerNumber(children.length)} នាក់)`
+                      : `Children (${children.length})`}
                   </h3>
                 </div>
                 <button
@@ -1041,9 +1041,8 @@ export function MobileRelationshipExplorer({
                             <div className="flex flex-wrap items-center gap-2 mt-1 text-[10.5px] text-[#6a7f99] leading-relaxed">
                               {chSpouses.length > 0 && (
                                 <span className="inline-flex items-center gap-1 text-rose-600 font-medium leading-relaxed">
-                                  <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500 shrink-0" />
                                   <span>
-                                    {chSpouses.map((s) => getDisplayName(s)).join(", ")}
+                                    ប្តី/ប្រពន្ធ៖ {chSpouses.map((s) => getDisplayName(s)).join(", ")}
                                   </span>
                                 </span>
                               )}
@@ -1179,7 +1178,7 @@ export function MobileRelationshipExplorer({
                                 )}
                                 {pSpouses.length > 0 && (
                                   <span className="text-rose-600">
-                                    ❤️ {pSpouses.map((s) => getDisplayName(s)).join(", ")}
+                                    • ប្តី/ប្រពន្ធ៖ {pSpouses.map((s) => getDisplayName(s)).join(", ")}
                                   </span>
                                 )}
                                 {pChildren.length > 0 && (
