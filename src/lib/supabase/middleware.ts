@@ -37,10 +37,10 @@ export async function updateSession(request: NextRequest) {
   // Refresh session if expired - required for Server Components
   await supabase.auth.getUser();
 
-  // Direct access: Redirect any visits to /login directly to /dashboard
-  if (request.nextUrl.pathname.startsWith("/login")) {
+  // Direct access: Redirect any visits to /login or /dashboard directly to / (Family Tree)
+  if (request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/dashboard")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 

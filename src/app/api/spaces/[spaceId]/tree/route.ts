@@ -28,7 +28,14 @@ export async function GET(
       where: { spaceId },
     });
 
+    // Fetch space details for title
+    const space = await prisma.familySpace.findUnique({
+      where: { id: spaceId },
+      select: { id: true, name: true, slug: true, description: true },
+    });
+
     return NextResponse.json({
+      space: space ? { id: space.id, name: space.name } : null,
       people: sanitizedPeople,
       relationships,
       userRole: membership.role,

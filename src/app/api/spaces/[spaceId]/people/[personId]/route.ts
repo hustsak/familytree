@@ -10,12 +10,12 @@ const updatePersonSchema = z.object({
   lastName: z.string().min(1).max(60).optional(),
   khmerName: z.string().max(100).optional().nullable(),
   gender: z.enum(["MALE", "FEMALE", "OTHER", "UNKNOWN"]).optional(),
-  birthYear: z.number().int().min(1800).max(2026).optional().nullable(),
-  deathYear: z.number().int().min(1800).max(2026).optional().nullable(),
+  birthYear: z.number().int().min(1000).max(new Date().getFullYear() + 10).optional().nullable(),
+  deathYear: z.number().int().min(1000).max(new Date().getFullYear() + 10).optional().nullable(),
   isLiving: z.boolean().optional(),
   isRestricted: z.boolean().optional(),
   isVerified: z.boolean().optional(),
-  photoUrl: z.string().url().optional().nullable(),
+  photoUrl: z.string().max(2000).optional().nullable(),
   biography: z.string().max(3000).optional().nullable(),
 });
 
@@ -130,19 +130,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Person not found" }, { status: 404 });
     }
 
-    // Authorization check: Only OWNER/ADMIN or linked member can edit
     const isCouncil = membership.role === Role.OWNER || membership.role === Role.ADMIN;
-    const isSelfLinked = membership.personId === person.id;
-    const isCreator = person.createdById === user.id;
-
-    if (!isCouncil && !isSelfLinked && !isCreator) {
-      return NextResponse.json(
-        { error: "Unauthorized: You do not have permission to modify this relative's record." },
-        { status: 403 }
-      );
-    }
+    // In collaborative family mode, all space members/cousins can fill and update profile information.
+    // Administrative attributes (like verification badges) remain guarded below.
 
     const body = await req.json();
+    if (body && typeof body.birthYear === "string") {
+      const parsedNum = parseInt(body.birthYear.replace(/[^\d]/g, ""), 10);
+      body.birthYear = !isNaN(parsedNum) ? parsedNum : null;
+    }
+    if (body && typeof body.deathYear === "string") {
+      const parsedNum = parseInt(body.deathYear.replace(/[^\d]/g, ""), 10);
+      body.deathYear = !isNaN(parsedNum) ? parsedNum : null;
+    }
     const parsed = updatePersonSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -189,11 +189,103 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({ success: true, person: updated });
+    return NextResponse.json({
+      success: true,
+      message: "ព័ត៌មានសមាជិកគ្រួសារត្រូវបានកែប្រែដោយជោគជ័យ (Relative updated successfully)",
+      person: updated,
+    });
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string };
     return NextResponse.json(
       { error: err.message || "Failed to update relative profile" },
+      { status: err.status || 500 }
+    );
+  }
+}
+
+// DELETE /api/spaces/[spaceId]/people/[personId] - Remove relative from tree safely
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ spaceId: string; personId: string }> }
+) {
+  try {
+    const { spaceId, personId } = await params;
+    // Only Council (OWNER or ADMIN) can remove relatives
+    const { user } = await requireSpaceRole(spaceId, Role.ADMIN);
+
+    const origin = req.headers.get("origin");
+    const referer = req.headers.get("referer");
+    if (!verifyCsrfOrigin(origin, referer)) {
+      return NextResponse.json(
+        { error: "Forbidden: Cross-site request rejected." },
+        { status: 403 }
+      );
+    }
+
+    const person = await prisma.person.findUnique({
+      where: { id: personId },
+      include: {
+        relationshipsAsSubject: true,
+        relationshipsAsTarget: true,
+        taggedMemories: true,
+        spaceMember: true,
+      },
+    });
+
+    if (!person || person.spaceId !== spaceId) {
+      return NextResponse.json(
+        { error: "Person not found in this space" },
+        { status: 404 }
+      );
+    }
+
+    const relCount =
+      person.relationshipsAsSubject.length + person.relationshipsAsTarget.length;
+    const memoryTagCount = person.taggedMemories.length;
+
+    // Unlink any pending invitations referencing this person
+    await prisma.invitation.updateMany({
+      where: { spaceId, suggestedPersonId: personId },
+      data: { suggestedPersonId: null },
+    });
+
+    // Delete person record (cascades relationships and memory tags, sets space_member.personId to null)
+    await prisma.person.delete({
+      where: { id: personId },
+    });
+
+    // Record audit trail
+    await recordAuditLog({
+      spaceId,
+      actorId: user.id,
+      action: "RELATIVE_DELETED",
+      entityType: "Person",
+      entityId: personId,
+      metadata: {
+        deletedPersonName: `${person.firstName} ${person.lastName}`,
+        khmerName: person.khmerName,
+        removedRelationshipsCount: relCount,
+        untaggedMemoriesCount: memoryTagCount,
+        unlinkedUser: person.spaceMember ? person.spaceMember.userId : null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "សមាជិកគ្រួសារត្រូវបានលុបចេញពីពង្សាវតារដោយជោគជ័យ (Relative removed from family tree)",
+      deletedPerson: {
+        id: person.id,
+        name: `${person.firstName} ${person.lastName}`,
+        khmerName: person.khmerName,
+        removedRelationshipsCount: relCount,
+        untaggedMemoriesCount: memoryTagCount,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("DELETE /api/spaces/[spaceId]/people/[personId] error:", error);
+    const err = error as { status?: number; message?: string };
+    return NextResponse.json(
+      { error: err.message || "Failed to remove relative" },
       { status: err.status || 500 }
     );
   }

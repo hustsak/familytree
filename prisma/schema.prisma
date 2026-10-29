@@ -1,6 +1,3 @@
-// Prisma schema for Family Heritage
-// Multi-tenant private family spaces with strict authorization and DAG lineage
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +5,222 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model FamilySpace {
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String              @unique
+  description        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  auditLogs          AuditLog[]
+  connectionRequests ConnectionRequest[]
+  invitations        Invitation[]
+  memories           Memory[]
+  people             Person[]
+  relationships      Relationship[]
+  members            SpaceMember[]
+
+  @@map("family_spaces")
+}
+
+model User {
+  id                 String              @id
+  email              String              @unique
+  fullName           String
+  avatarUrl          String?
+  language           String              @default("en")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  auditLogs          AuditLog[]          @relation("UserAuditLogs")
+  reviewedRequests   ConnectionRequest[] @relation("ReviewedConnectionRequests")
+  connectionRequests ConnectionRequest[] @relation("UserConnectionRequests")
+  sentInvitations    Invitation[]        @relation("SentInvitations")
+  memories           Memory[]
+  createdPeople      Person[]            @relation("CreatedPeople")
+  approvedRelations  Relationship[]      @relation("ApprovedRelationships")
+  createdRelations   Relationship[]      @relation("CreatedRelationships")
+  spaceMemberships   SpaceMember[]
+
+  @@map("users")
+}
+
+model SpaceMember {
+  id       String       @id @default(cuid())
+  spaceId  String
+  userId   String
+  personId String?      @unique
+  role     Role         @default(MEMBER)
+  status   MemberStatus @default(ACTIVE)
+  joinedAt DateTime     @default(now())
+  person   Person?      @relation(fields: [personId], references: [id])
+  space    FamilySpace  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, userId])
+  @@index([spaceId, role])
+  @@map("space_members")
+}
+
+model Person {
+  id                     String            @id @default(cuid())
+  spaceId                String
+  firstName              String
+  lastName               String
+  khmerName              String?
+  gender                 Gender            @default(UNKNOWN)
+  birthYear              Int?
+  birthDate              DateTime?
+  birthPlace             String?
+  deathYear              Int?
+  deathDate              DateTime?
+  deathPlace             String?
+  isLiving               Boolean           @default(true)
+  photoUrl               String?
+  biography              String?
+  isVerified             Boolean           @default(true)
+  isRestricted           Boolean           @default(false)
+  createdById            String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  taggedMemories         MemoryPersonTag[]
+  createdBy              User?             @relation("CreatedPeople", fields: [createdById], references: [id])
+  space                  FamilySpace       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  relationshipsAsSubject Relationship[]    @relation("SubjectPerson")
+  relationshipsAsTarget  Relationship[]    @relation("TargetPerson")
+  spaceMember            SpaceMember?
+
+  @@index([spaceId])
+  @@index([spaceId, lastName, firstName])
+  @@index([spaceId, birthYear])
+  @@map("people")
+}
+
+model Relationship {
+  id              String          @id @default(cuid())
+  spaceId         String
+  personId        String
+  relatedPersonId String
+  type            RelationType
+  status          RelationStatus  @default(CONFIRMED)
+  confidence      ConfidenceLevel @default(DIRECT)
+  notes           String?
+  createdById     String?
+  approvedById    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  approvedBy      User?           @relation("ApprovedRelationships", fields: [approvedById], references: [id])
+  createdBy       User?           @relation("CreatedRelationships", fields: [createdById], references: [id])
+  person          Person          @relation("SubjectPerson", fields: [personId], references: [id], onDelete: Cascade)
+  relatedPerson   Person          @relation("TargetPerson", fields: [relatedPersonId], references: [id], onDelete: Cascade)
+  space           FamilySpace     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@unique([spaceId, personId, relatedPersonId, type])
+  @@index([spaceId, personId])
+  @@index([spaceId, relatedPersonId])
+  @@map("relationships")
+}
+
+model Invitation {
+  id                String           @id @default(cuid())
+  spaceId           String
+  email             String
+  role              Role             @default(MEMBER)
+  token             String           @unique
+  suggestedPersonId String?
+  suggestedRelation String?
+  status            InvitationStatus @default(PENDING)
+  expiresAt         DateTime
+  invitedById       String
+  createdAt         DateTime         @default(now())
+  invitedBy         User             @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  space             FamilySpace      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, email])
+  @@index([token])
+  @@map("invitations")
+}
+
+model ConnectionRequest {
+  id                 String        @id @default(cuid())
+  spaceId            String
+  userId             String
+  proposedPersonData Json
+  anchorPersonId     String
+  relationType       String
+  status             RequestStatus @default(PENDING)
+  adminNotes         String?
+  reviewedById       String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  reviewedBy         User?         @relation("ReviewedConnectionRequests", fields: [reviewedById], references: [id])
+  space              FamilySpace   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user               User          @relation("UserConnectionRequests", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, status])
+  @@map("connection_requests")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  spaceId    String
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+  actor      User        @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: Cascade)
+  space      FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@index([spaceId, createdAt])
+  @@map("audit_logs")
+}
+
+model Memory {
+  id               String            @id @default(cuid())
+  spaceId          String
+  title            String
+  titleKm          String?
+  description      String?
+  descriptionKm    String?
+  type             MemoryType        @default(PHOTO)
+  status           MemoryStatus      @default(PUBLISHED)
+  storagePath      String?
+  mediaUrl         String?
+  fileSize         Int?
+  mimeType         String?
+  originalFileName String?
+  eventDate        DateTime?
+  eventYear        Int?
+  location         String?
+  branchTag        String?
+  createdById      String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdBy        User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  space            FamilySpace       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  taggedPeople     MemoryPersonTag[]
+
+  @@index([spaceId, type])
+  @@index([spaceId, eventYear])
+  @@index([spaceId, status])
+  @@map("memories")
+}
+
+model MemoryPersonTag {
+  id        String   @id @default(cuid())
+  memoryId  String
+  personId  String
+  createdAt DateTime @default(now())
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([memoryId, personId])
+  @@index([memoryId])
+  @@index([personId])
+  @@map("memory_person_tags")
 }
 
 enum Role {
@@ -75,234 +288,3 @@ enum MemoryStatus {
   PENDING_REVIEW
   ARCHIVED
 }
-
-model FamilySpace {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  members            SpaceMember[]
-  people             Person[]
-  relationships      Relationship[]
-  invitations        Invitation[]
-  connectionRequests ConnectionRequest[]
-  auditLogs          AuditLog[]
-  memories           Memory[]
-
-  @@map("family_spaces")
-}
-
-model User {
-  id        String   @id // Corresponds to Supabase Auth UUID (auth.uid())
-  email     String   @unique
-  fullName  String
-  avatarUrl String?
-  language  String   @default("en") // "en" or "km"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  spaceMemberships   SpaceMember[]
-  createdPeople      Person[]            @relation("CreatedPeople")
-  createdRelations   Relationship[]      @relation("CreatedRelationships")
-  approvedRelations  Relationship[]      @relation("ApprovedRelationships")
-  sentInvitations    Invitation[]        @relation("SentInvitations")
-  connectionRequests ConnectionRequest[] @relation("UserConnectionRequests")
-  reviewedRequests   ConnectionRequest[] @relation("ReviewedConnectionRequests")
-  auditLogs          AuditLog[]          @relation("UserAuditLogs")
-  memories           Memory[]
-
-  @@map("users")
-}
-
-model SpaceMember {
-  id        String       @id @default(cuid())
-  spaceId   String
-  userId    String
-  personId  String?      @unique // Linked Person record in the tree (optional until connected)
-  role      Role         @default(MEMBER)
-  status    MemberStatus @default(ACTIVE)
-  joinedAt  DateTime     @default(now())
-
-  space  FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  person Person?     @relation(fields: [personId], references: [id], onDelete: SetNull)
-
-  @@unique([spaceId, userId])
-  @@index([spaceId, role])
-  @@map("space_members")
-}
-
-model Person {
-  id          String    @id @default(cuid())
-  spaceId     String
-  firstName   String
-  lastName    String
-  khmerName   String?
-  gender      Gender    @default(UNKNOWN)
-  birthYear   Int?
-  birthDate   DateTime?
-  birthPlace  String?
-  deathYear   Int?
-  deathDate   DateTime?
-  deathPlace  String?
-  isLiving    Boolean   @default(true)
-  photoUrl    String?
-  biography   String?
-  isVerified  Boolean   @default(true)
-  isRestricted Boolean  @default(false) // Phase 5: Privacy control for living relative
-  createdById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  space          FamilySpace       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  createdBy      User?             @relation("CreatedPeople", fields: [createdById], references: [id], onDelete: SetNull)
-  spaceMember    SpaceMember?
-  taggedMemories MemoryPersonTag[]
-
-  // Relationships where this person is the subject (e.g. parent or partner 1)
-  relationshipsAsSubject Relationship[] @relation("SubjectPerson")
-  // Relationships where this person is the target (e.g. child or partner 2)
-  relationshipsAsTarget  Relationship[] @relation("TargetPerson")
-
-  @@index([spaceId])
-  @@index([spaceId, lastName, firstName])
-  @@index([spaceId, birthYear])
-  @@map("people")
-}
-
-model Relationship {
-  id              String          @id @default(cuid())
-  spaceId         String
-  personId        String          // Parent in PARENT_CHILD, or Partner 1 in SPOUSE
-  relatedPersonId String          // Child in PARENT_CHILD, or Partner 2 in SPOUSE
-  type            RelationType
-  status          RelationStatus  @default(CONFIRMED)
-  confidence      ConfidenceLevel @default(DIRECT)
-  notes           String?
-  createdById     String?
-  approvedById    String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-
-  space         FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  person        Person      @relation("SubjectPerson", fields: [personId], references: [id], onDelete: Cascade)
-  relatedPerson Person      @relation("TargetPerson", fields: [relatedPersonId], references: [id], onDelete: Cascade)
-  createdBy     User?       @relation("CreatedRelationships", fields: [createdById], references: [id], onDelete: SetNull)
-  approvedBy    User?       @relation("ApprovedRelationships", fields: [approvedById], references: [id], onDelete: SetNull)
-
-  // Enforce unique relationship per space, type, and node pair (prevents duplicate edges)
-  @@unique([spaceId, personId, relatedPersonId, type])
-  @@index([spaceId, personId])
-  @@index([spaceId, relatedPersonId])
-  @@map("relationships")
-}
-
-model Invitation {
-  id                 String           @id @default(cuid())
-  spaceId            String
-  email              String
-  role               Role             @default(MEMBER)
-  token              String           @unique
-  suggestedPersonId  String?
-  suggestedRelation  String?
-  status             InvitationStatus @default(PENDING)
-  expiresAt          DateTime
-  invitedById        String
-  createdAt          DateTime         @default(now())
-
-  space     FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  invitedBy User        @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
-
-  @@index([spaceId, email])
-  @@index([token])
-  @@map("invitations")
-}
-
-model ConnectionRequest {
-  id                 String        @id @default(cuid())
-  spaceId            String
-  userId             String
-  proposedPersonData Json
-  anchorPersonId     String
-  relationType       String        // e.g. "PARENT", "GRANDPARENT", "GREAT_GRANDPARENT"
-  status             RequestStatus @default(PENDING)
-  adminNotes         String?
-  reviewedById       String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-
-  space      FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  user       User        @relation("UserConnectionRequests", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy User?       @relation("ReviewedConnectionRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
-
-  @@index([spaceId, status])
-  @@map("connection_requests")
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  spaceId    String
-  actorId    String
-  action     String
-  entityType String
-  entityId   String
-  metadata   Json?
-  createdAt  DateTime @default(now())
-
-  space FamilySpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  actor User        @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: Cascade)
-
-  @@index([spaceId, createdAt])
-  @@map("audit_logs")
-}
-
-model Memory {
-  id               String       @id @default(cuid())
-  spaceId          String
-  title            String
-  titleKm          String?
-  description      String?
-  descriptionKm    String?
-  type             MemoryType   @default(PHOTO)
-  status           MemoryStatus @default(PUBLISHED)
-  storagePath      String?      // Supabase Storage private object key
-  mediaUrl         String?      // Fallback or external URL if applicable
-  fileSize         Int?
-  mimeType         String?
-  originalFileName String?
-  eventDate        DateTime?
-  eventYear        Int?
-  location         String?
-  branchTag        String?      // e.g. "Paternal", "Maternal", or branch name
-  createdById      String
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-
-  space        FamilySpace       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
-  taggedPeople MemoryPersonTag[]
-
-  @@index([spaceId, type])
-  @@index([spaceId, eventYear])
-  @@index([spaceId, status])
-  @@map("memories")
-}
-
-model MemoryPersonTag {
-  id        String   @id @default(cuid())
-  memoryId  String
-  personId  String
-  createdAt DateTime @default(now())
-
-  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-
-  @@unique([memoryId, personId])
-  @@index([memoryId])
-  @@index([personId])
-  @@map("memory_person_tags")
-}
-

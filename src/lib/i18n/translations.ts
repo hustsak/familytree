@@ -121,6 +121,21 @@ export interface Translations {
     emptyTreeTitle: string;
     emptyTreeDesc: string;
     establishFoundingBtn: string;
+    entireTree: string;
+    myBranch: string;
+    fitScreen: string;
+    collapseAll: string;
+    expandAll: string;
+    branchLegend: string;
+    allBranches: string;
+    findPerson: string;
+    fitBranch: string;
+    fitOverview: string;
+    focusDescendants: string;
+    compactLayout: string;
+    standardLayout: string;
+    viewAllTree: string;
+    focusingOnDescendants: string;
   };
   adminDashboard: {
     title: string;
@@ -286,6 +301,21 @@ export const translations: Record<SupportedLanguage, Translations> = {
       emptyTreeTitle: "Empty Family Tree",
       emptyTreeDesc: "This family space has no relatives recorded yet. Onboard the founding patriarch or matriarch to begin.",
       establishFoundingBtn: "Establish Founding Ancestor",
+      entireTree: "Entire Tree",
+      myBranch: "My Branch",
+      fitScreen: "Fit Screen",
+      collapseAll: "Collapse All",
+      expandAll: "Expand All",
+      branchLegend: "Lineage Branches",
+      allBranches: "All Relatives",
+      findPerson: "Find Person",
+      fitBranch: "Fit Branch",
+      fitOverview: "Fit Overview",
+      focusDescendants: "Focus Descendants",
+      compactLayout: "Compact Layout",
+      standardLayout: "Standard Layout",
+      viewAllTree: "View Entire Tree",
+      focusingOnDescendants: "Focusing on descendants across generations of",
     },
     adminDashboard: {
       title: "Family Council & Lineage Approvals",
@@ -449,6 +479,21 @@ export const translations: Record<SupportedLanguage, Translations> = {
       emptyTreeTitle: "មិនទាន់មានទិន្នន័យដើមឈើគ្រួសារ",
       emptyTreeDesc: "ដែនគ្រួសារនេះមិនទាន់មានសាច់ញាតិណាម្នាក់នៅឡើយទេ។ សូមចុះឈ្មោះមេគ្រួសារដំបូងដើម្បីចាប់ផ្តើម។",
       establishFoundingBtn: "ចុះឈ្មោះមេគ្រួសារដំបូង",
+      entireTree: "ដើមឈើទាំងមូល",
+      myBranch: "មែកធាងខ្ញុំ",
+      fitScreen: "សមនឹងអេក្រង់",
+      collapseAll: "បង្រួមទាំងអស់",
+      expandAll: "ពង្រីកទាំងអស់",
+      branchLegend: "ខ្សែស្រឡាយគ្រួសារ",
+      allBranches: "សាច់ញាតិទាំងអស់",
+      findPerson: "ស្វែងរកសាច់ញាតិ",
+      fitBranch: "តម្រឹមមែកធាង",
+      fitOverview: "ទិដ្ឋភាពទូទៅ",
+      focusDescendants: "មែកធាងជាមេគ្រួសារ",
+      compactLayout: "ប្លង់បង្រួម",
+      standardLayout: "ប្លង់ធម្មតា",
+      viewAllTree: "មើលដើមឈើទាំងមូល",
+      focusingOnDescendants: "កំពុងផ្តោតលើតំណពូជកូនចៅគ្រប់ជំនាន់របស់",
     },
     adminDashboard: {
       title: "ក្រុមប្រឹក្សាគ្រួសារ & ការអនុម័តខ្សែស្រឡាយ",
