@@ -60,7 +60,19 @@ input,
 textarea,
 select {
   font-family: var(--font-khmer);
-  line-height: 1.6;
+  line-height: 1.75;
+}
+
+/* Prevent Khmer superscripts (ី ំ ់) and subscripts (ជើងអក្សរ) from being clipped */
+.font-khmer h1,
+.font-khmer h2,
+.font-khmer h3,
+.font-khmer p,
+.font-khmer span,
+.font-khmer button,
+.font-khmer select,
+.font-khmer input {
+  line-height: 1.72;
 }
 
 /* Heritage Gold Gradients & Accents */

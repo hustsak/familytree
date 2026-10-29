@@ -1899,7 +1899,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#2f7de1] to-[#1c57b8] flex items-center justify-center text-white shadow-sm shrink-0">
               <TreePine className="w-4 h-4" />
             </div>
-            <h1 className="text-xs sm:text-sm font-bold text-[#1c2e48] leading-tight max-w-[120px] xs:max-w-[150px] sm:max-w-xs truncate">
+            <h1 className="text-xs sm:text-sm font-bold text-[#1c2e48] leading-relaxed py-0.5 max-w-[120px] xs:max-w-[150px] sm:max-w-xs break-words">
               {spaceInfo?.name || t.nav.tree}
             </h1>
             <span className="hidden xs:inline-flex px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#ebf3fc] text-[#2f7de1] border border-[#dbe7f5] shrink-0">
@@ -1947,7 +1947,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                     className="w-full px-3.5 py-2.5 text-left hover:bg-[#ebf3fc] flex items-center justify-between text-xs transition-colors cursor-pointer"
                   >
                     <div className="truncate">
-                      <span className="font-bold text-[#1c2e48] block truncate font-khmer">
+                      <span className="font-bold text-[#1c2e48] block leading-relaxed py-0.5 break-words font-khmer">
                         {person.khmerName || `${person.lastName} ${person.firstName}`.trim()}
                       </span>
                       {person.khmerName && (

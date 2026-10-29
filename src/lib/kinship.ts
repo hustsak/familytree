@@ -263,16 +263,12 @@ export function calculateKinship(
           km: isFemale ? "ទួតស្រី" : isMale ? "ទួតប្រុស" : "ទួត",
         };
       }
-      if (upCount === 4) {
+      if (upCount >= 4) {
         return {
           en: isFemale ? "2x Great-Grandmother" : isMale ? "2x Great-Grandfather" : "2x Great-Grandparent",
-          km: isFemale ? "លួតស្រី" : isMale ? "លួតប្រុស" : "លួត",
+          km: "លួត",
         };
       }
-      return {
-        en: `${upCount - 2}x Great-Grandparent`,
-        km: `បុព្វបុរស ${upCount} ជំនាន់`,
-      };
     }
 
     if (upCount === 0 && downCount > 0) {
@@ -420,10 +416,22 @@ export function calculateKinship(
         km: isFemale ? "ក្មួយស្រី" : isMale ? "ក្មួយប្រុស" : "ក្មួយ",
       };
     }
-    if (netGen < -1) {
+    if (netGen === -2) {
+      return {
+        en: isFemale ? "Great-Aunt" : isMale ? "Great-Uncle" : "Great-Aunt/Uncle",
+        km: isFemale ? "ជីដូន (យាយ)" : isMale ? "ជីតា (តា)" : "ជីដូនជីតា",
+      };
+    }
+    if (netGen === -3) {
+      return {
+        en: isFemale ? "Great-Grandmother" : isMale ? "Great-Grandfather" : "Great-Grandparent",
+        km: isFemale ? "ទួតស្រី" : isMale ? "ទួតប្រុស" : "ទួត",
+      };
+    }
+    if (netGen <= -4) {
       return {
         en: `${Math.abs(netGen)} Generations Elder Relative`,
-        km: isFemale ? "ជីដូន (យាយ)" : isMale ? "ជីតា (តា)" : `សាច់ញាតិជំនាន់មុន (${Math.abs(netGen)} ជំនាន់)`,
+        km: "លួត",
       };
     }
     return {
