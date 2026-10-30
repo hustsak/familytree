@@ -535,6 +535,8 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
   }, [activeProfile, relationships, people]);
 
   // Automatic instant kinship calculation between user ("Me") and currently opened profile
+  const [drawerCompareId, setDrawerCompareId] = useState<string>("");
+
   const activeProfileKinshipToMe = useMemo(() => {
     if (!activeProfile || !linkedPersonId || activeProfile.id === linkedPersonId) return null;
     const kPeople: KinshipPerson[] = people.map((p) => ({
@@ -654,6 +656,67 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
       childrenMap: directChildrenMap,
     };
   }, [activeProfile, people, relationships]);
+
+  // Drawer relationship calculator ("ទំនាក់ទំនងសាច់ញាតិ / ត្រូវជាអ្វីនឹងអ្នក")
+  const drawerKinshipCalc = useMemo(() => {
+    if (!activeProfile) {
+      return {
+        effectiveCompareId: "",
+        effectiveComparePerson: null as TreePerson | null,
+        kinshipActiveToCompare: null,
+        kinshipCompareToActive: null,
+      };
+    }
+
+    let targetId = drawerCompareId;
+    if (!targetId || targetId === activeProfile.id || !people.some((p) => p.id === targetId)) {
+      if (linkedPersonId && linkedPersonId !== activeProfile.id && people.some((p) => p.id === linkedPersonId)) {
+        targetId = linkedPersonId;
+      } else {
+        targetId =
+          activeProfileLineage.parents[0]?.id ||
+          activeProfileLineage.children[0]?.id ||
+          activeProfileLineage.spouses[0]?.id ||
+          people.find((p) => p.id !== activeProfile.id)?.id ||
+          "";
+      }
+    }
+
+    const targetPerson = people.find((p) => p.id === targetId) || null;
+    if (!targetPerson) {
+      return {
+        effectiveCompareId: "",
+        effectiveComparePerson: null as TreePerson | null,
+        kinshipActiveToCompare: null,
+        kinshipCompareToActive: null,
+      };
+    }
+
+    const kPeople: KinshipPerson[] = people.map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      khmerName: p.khmerName,
+      gender: p.gender,
+    }));
+    const kRels: KinshipRelationship[] = relationships.map((r) => ({
+      id: r.id,
+      personId: r.personId,
+      relatedPersonId: r.relatedPersonId,
+      type: r.type,
+      status: r.status,
+    }));
+
+    const relActiveToTarget = calculateKinship(targetPerson.id, activeProfile.id, kPeople, kRels);
+    const relTargetToActive = calculateKinship(activeProfile.id, targetPerson.id, kPeople, kRels);
+
+    return {
+      effectiveCompareId: targetPerson.id,
+      effectiveComparePerson: targetPerson,
+      kinshipActiveToCompare: relActiveToTarget.determined ? relActiveToTarget : null,
+      kinshipCompareToActive: relTargetToActive.determined ? relTargetToActive : null,
+    };
+  }, [activeProfile, drawerCompareId, linkedPersonId, activeProfileLineage, people, relationships]);
 
   // Ref to break circular closure in node callbacks
   const applyLayoutRef = useRef<
@@ -2574,30 +2637,47 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                           <User className="w-6 h-6 text-[#d4af37]" />
                         )}
                       </div>
-                      <div>
-                        <h3 className="text-base font-bold font-khmer text-white">
-                          {activeProfile.khmerName ||
-                            `${activeProfile.lastName} ${activeProfile.firstName}`.trim()}
-                        </h3>
-                        {activeProfile.khmerName &&
-                          `${activeProfile.lastName} ${activeProfile.firstName}`.trim() &&
-                          `${activeProfile.lastName} ${activeProfile.firstName}`.trim() !==
-                            activeProfile.khmerName && (
-                            <p className="text-xs text-[#d4af37] font-heritage">
-                              {`${activeProfile.lastName} ${activeProfile.firstName}`.trim()}
-                            </p>
-                          )}
-                        {/* Automatic Kinship Relationship Badge to Current User */}
-                        {activeProfileKinshipToMe && (
-                          <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-[10.5px] font-bold font-khmer">
-                            <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                            <span>
-                              {language === "km"
-                                ? `ត្រូវជា ${activeProfileKinshipToMe.relationshipNameKm} របស់អ្នក`
-                                : `Your ${activeProfileKinshipToMe.relationshipNameEn}`}
-                            </span>
-                          </div>
-                        )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <select
+                            value={activeProfile.id}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleSelectSearchResult(e.target.value);
+                                handleClaimIdentity(e.target.value);
+                              }
+                            }}
+                            className="bg-slate-800/90 hover:bg-slate-800 text-white text-sm sm:text-base font-bold font-khmer rounded-xl px-2.5 py-1 border border-slate-600 focus:outline-none cursor-pointer max-w-[210px] leading-relaxed"
+                            title={
+                              language === "km"
+                                ? "ជ្រើសរើសឈ្មោះខ្លួនអ្នក ឬសមាជិកគោល"
+                                : "Choose Yourself / Main Person"
+                            }
+                          >
+                            {people.map((p) => (
+                              <option key={p.id} value={p.id} className="text-slate-900 bg-white font-bold">
+                                {p.khmerName || `${p.lastName} ${p.firstName}`.trim()}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleClaimIdentity(activeProfile.id)}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 leading-relaxed cursor-pointer transition-all ${
+                              linkedPersonId === activeProfile.id
+                                ? "bg-amber-400 text-slate-950"
+                                : "bg-blue-600/20 text-blue-600 border border-blue-400/40 hover:bg-amber-400 hover:text-slate-950"
+                            }`}
+                          >
+                            {linkedPersonId === activeProfile.id
+                              ? language === "km"
+                                ? "ខ្លួនខ្ញុំ ✓"
+                                : "ME ✓"
+                              : language === "km"
+                              ? "ជាខ្លួនខ្ញុំ"
+                              : "Set as Me"}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -2614,67 +2694,91 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                     </button>
                   </div>
 
-                  {/* Interactive Kinship to "Me" Selector & Quick Add Bar (Mobile-style clarity on Laptop) */}
+                  {/* Interactive Kinship Calculator ("ទំនាក់ទំនងសាច់ញាតិ / ត្រូវជាអ្វីនឹងអ្នក") & Quick Add Bar */}
                   <div className="mb-4 p-3 rounded-2xl bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#0284c7] text-white shadow-md border border-blue-400/30 space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 min-w-0 flex-1">
-                        <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-1" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1 text-blue-100 text-[11px] mb-1 leading-relaxed">
-                            <span>
-                              {language === "km" ? "ត្រូវជាអ្វីនឹងអ្នក (" : "Relation to you ("}
-                            </span>
-                            <select
-                              value={linkedPersonId || ""}
-                              onChange={(e) => {
-                                if (e.target.value) handleClaimIdentity(e.target.value);
-                              }}
-                              className="bg-white/15 text-amber-200 font-bold rounded-lg px-2 py-0.5 text-[11px] border border-white/25 focus:outline-none cursor-pointer max-w-[165px] leading-relaxed"
-                              title={language === "km" ? "ជ្រើសរើសឈ្មោះរបស់អ្នក" : "Select your identity"}
-                            >
-                              <option value="" className="text-slate-900">
-                                {language === "km" ? "-- ជ្រើសរើសឈ្មោះអ្នក --" : "-- Select Yourself --"}
-                              </option>
-                              {people.map((p) => (
-                                <option key={p.id} value={p.id} className="text-slate-900">
-                                  {p.khmerName || `${p.lastName} ${p.firstName}`.trim()}
-                                </option>
-                              ))}
-                            </select>
-                            <span>)៖</span>
-                          </div>
-                          {linkedPersonId ? (
-                            linkedPersonId === activeProfile.id ? (
-                              <span className="inline-block font-extrabold text-amber-300 text-sm leading-relaxed py-0.5">
-                                {language === "km" ? "ខ្លួនអ្នកផ្ទាល់ (Self)" : "Yourself (Self)"}
-                              </span>
-                            ) : activeProfileKinshipToMe ? (
-                              <span className="inline-block font-extrabold text-amber-300 text-sm leading-relaxed py-0.5">
-                                {language === "km"
-                                  ? activeProfileKinshipToMe.relationshipNameKm
-                                  : activeProfileKinshipToMe.relationshipNameEn}
-                              </span>
-                            ) : (
-                              <span className="inline-block text-blue-100 text-xs leading-relaxed py-0.5">
-                                {language === "km" ? "សាច់ញាតិក្នុងគ្រួសារ" : "Family Relative"}
-                              </span>
-                            )
-                          ) : (
-                            <span className="inline-block text-amber-200 text-[11px] font-semibold leading-relaxed py-0.5">
-                              {language === "km"
-                                ? "ជ្រើសរើសឈ្មោះអ្នកខាងលើដើម្បីមើលខ្សែញាតិ"
-                                : "Select your name above to see kinship"}
-                            </span>
-                          )}
-                        </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                        <span className="text-xs font-extrabold text-amber-300 leading-relaxed">
+                          {language === "km"
+                            ? "ទំនាក់ទំនងសាច់ញាតិ (គណនាខ្សែញាតិ)"
+                            : "Kinship Relationship Calculator"}
+                        </span>
                       </div>
-                      {activeProfileKinshipToMe && (
+                      {drawerKinshipCalc.kinshipActiveToCompare && (
                         <span className="px-2 py-0.5 rounded-lg bg-white/15 text-[10px] font-semibold shrink-0 leading-relaxed">
-                          {activeProfileKinshipToMe.degreeOfSeparation}{" "}
+                          {drawerKinshipCalc.kinshipActiveToCompare.degreeOfSeparation}{" "}
                           {language === "km" ? "ជំហាន" : "steps"}
                         </span>
                       )}
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-1 text-blue-100 text-[11px] leading-relaxed">
+                      <span>
+                        {language === "km"
+                          ? `${activeProfile.khmerName || `${activeProfile.lastName} ${activeProfile.firstName}`.trim()} ត្រូវជាអ្វីនឹងអ្នក (`
+                          : "Related to ("}
+                      </span>
+                      <select
+                        value={drawerKinshipCalc.effectiveCompareId}
+                        onChange={(e) => setDrawerCompareId(e.target.value)}
+                        className="bg-white/15 hover:bg-white/25 text-amber-200 font-bold rounded-lg px-2 py-0.5 text-[11px] border border-white/25 focus:outline-none cursor-pointer max-w-[175px] leading-relaxed"
+                        title={
+                          language === "km"
+                            ? "ជ្រើសរើសសមាជិកដើម្បីគណនាទំនាក់ទំនងសាច់ញាតិ"
+                            : "Choose relative to calculate relationship"
+                        }
+                      >
+                        {people
+                          .filter((p) => p.id !== activeProfile.id)
+                          .map((p) => (
+                            <option key={p.id} value={p.id} className="text-slate-900 font-semibold">
+                              {p.khmerName || `${p.lastName} ${p.firstName}`.trim()}
+                            </option>
+                          ))}
+                      </select>
+                      <span>)៖</span>
+                    </div>
+
+                    {drawerKinshipCalc.effectiveComparePerson &&
+                    drawerKinshipCalc.kinshipActiveToCompare ? (
+                      <div className="p-2 rounded-xl bg-slate-950/25 border border-white/15 space-y-1">
+                        <div className="text-xs leading-relaxed flex flex-wrap items-center gap-1">
+                          <span className="text-blue-100">ត្រូវជា៖</span>
+                          <span className="font-extrabold text-amber-300 text-sm px-2 py-0.5 rounded-lg bg-amber-400/20 border border-amber-300/40 leading-relaxed">
+                            {language === "km"
+                              ? drawerKinshipCalc.kinshipActiveToCompare.relationshipNameKm
+                              : drawerKinshipCalc.kinshipActiveToCompare.relationshipNameEn}
+                          </span>
+                          <span className="text-blue-100">
+                            របស់{" "}
+                            {drawerKinshipCalc.effectiveComparePerson.khmerName ||
+                              `${drawerKinshipCalc.effectiveComparePerson.lastName} ${drawerKinshipCalc.effectiveComparePerson.firstName}`.trim()}
+                          </span>
+                        </div>
+                        {drawerKinshipCalc.kinshipCompareToActive && (
+                          <div className="text-[10.5px] text-blue-100/90 leading-relaxed">
+                            <span>
+                              ហើយ{" "}
+                              {drawerKinshipCalc.effectiveComparePerson.khmerName ||
+                                `${drawerKinshipCalc.effectiveComparePerson.lastName} ${drawerKinshipCalc.effectiveComparePerson.firstName}`.trim()}{" "}
+                              ត្រូវជា៖{" "}
+                            </span>
+                            <span className="font-bold text-emerald-300">
+                              {language === "km"
+                                ? drawerKinshipCalc.kinshipCompareToActive.relationshipNameKm
+                                : drawerKinshipCalc.kinshipCompareToActive.relationshipNameEn}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="inline-block text-amber-200 text-[11px] font-semibold leading-relaxed py-0.5">
+                        {language === "km"
+                          ? "ជ្រើសរើសឈ្មោះសមាជិកខាងលើដើម្បីគណនាខ្សែញាតិ"
+                          : "Select a family member above to calculate kinship"}
+                      </span>
+                    )}
 
                     {/* Quick 1-Tap Relative Actions */}
                     <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-white/15">

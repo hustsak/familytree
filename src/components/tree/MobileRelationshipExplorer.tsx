@@ -59,6 +59,7 @@ export function MobileRelationshipExplorer({
 }: MobileRelationshipExplorerProps) {
   const [viewTab, setViewTab] = useState<"FOCUS" | "GENERATIONS">("FOCUS");
   const [expandedGen, setExpandedGen] = useState<number | null>(null);
+  const [comparePersonId, setComparePersonId] = useState<string>("");
 
   // Build adjacency maps and generation depth map
   const {
@@ -324,6 +325,83 @@ export function MobileRelationshipExplorer({
       kinshipToMe: kResult,
     };
   }, [activePerson, parentsMap, spousesMap, childrenMap, linkedPersonId, personMap, people, relationships]);
+
+  // Effective person selected in the "ទំនាក់ទំនងសាច់ញាតិ (ត្រូវជាអ្វីនឹងអ្នក)" calculator dropdown
+  const {
+    effectiveCompareId,
+    effectiveComparePerson,
+    kinshipCompareToActive,
+    kinshipActiveToCompare,
+  } = useMemo(() => {
+    if (!activePerson) {
+      return {
+        effectiveCompareId: "",
+        effectiveComparePerson: null,
+        kinshipCompareToActive: null,
+        kinshipActiveToCompare: null,
+      };
+    }
+
+    let targetId = comparePersonId;
+    if (!targetId || targetId === activePerson.id || !personMap.has(targetId)) {
+      if (linkedPersonId && linkedPersonId !== activePerson.id && personMap.has(linkedPersonId)) {
+        targetId = linkedPersonId;
+      } else {
+        const fallback =
+          parents[0]?.id ||
+          children[0]?.id ||
+          spouses[0]?.id ||
+          siblings[0]?.id ||
+          people.find((p) => p.id !== activePerson.id)?.id ||
+          "";
+        targetId = fallback;
+      }
+    }
+
+    const targetPerson = targetId ? personMap.get(targetId) || null : null;
+    if (!targetPerson) {
+      return {
+        effectiveCompareId: "",
+        effectiveComparePerson: null,
+        kinshipCompareToActive: null,
+        kinshipActiveToCompare: null,
+      };
+    }
+
+    // How targetPerson is related to activePerson (e.g. targetPerson ត្រូវជា X របស់ activePerson)
+    const relTargetToActive = calculateKinship(
+      activePerson.id,
+      targetPerson.id,
+      people as unknown as KinshipPerson[],
+      relationships as unknown as KinshipRelationship[]
+    );
+
+    // How activePerson is related to targetPerson (e.g. activePerson ត្រូវជា Y របស់ targetPerson)
+    const relActiveToTarget = calculateKinship(
+      targetPerson.id,
+      activePerson.id,
+      people as unknown as KinshipPerson[],
+      relationships as unknown as KinshipRelationship[]
+    );
+
+    return {
+      effectiveCompareId: targetPerson.id,
+      effectiveComparePerson: targetPerson,
+      kinshipCompareToActive: relTargetToActive,
+      kinshipActiveToCompare: relActiveToTarget,
+    };
+  }, [
+    activePerson,
+    comparePersonId,
+    linkedPersonId,
+    personMap,
+    parents,
+    children,
+    spouses,
+    siblings,
+    people,
+    relationships,
+  ]);
 
   // Group all people by Generation for the "All Generations" directory tab
   const generationGroups = useMemo(() => {
@@ -641,15 +719,48 @@ export function MobileRelationshipExplorer({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <h2 className="text-lg font-extrabold leading-relaxed py-0.5 break-words">
-                      {getDisplayName(activePerson)}
-                    </h2>
-                    {linkedPersonId === activePerson.id && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-extrabold shrink-0 leading-relaxed">
-                        {language === "km" ? "ខ្លួនខ្ញុំ" : "ME"}
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative inline-flex items-center">
+                      <select
+                        value={activePerson.id}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            onSelectPerson(e.target.value);
+                            onClaimIdentity(e.target.value);
+                          }
+                        }}
+                        className="appearance-none bg-white/15 hover:bg-white/25 text-white text-base sm:text-lg font-extrabold rounded-xl pl-3 pr-8 py-1 border border-white/30 focus:outline-none cursor-pointer leading-relaxed"
+                        title={
+                          language === "km"
+                            ? "ជ្រើសរើសឈ្មោះខ្លួនអ្នក ឬសមាជិកគោល"
+                            : "Choose Yourself / Main Person"
+                        }
+                      >
+                        {people.map((p) => (
+                          <option key={p.id} value={p.id} className="text-slate-900 font-bold">
+                            {getDisplayName(p)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-amber-300 pointer-events-none -ml-6 mr-2 shrink-0" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onClaimIdentity(activePerson.id)}
+                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold shrink-0 leading-relaxed cursor-pointer transition-all ${
+                        linkedPersonId === activePerson.id
+                          ? "bg-amber-400 text-slate-950 shadow-xs"
+                          : "bg-white/20 hover:bg-amber-400 hover:text-slate-950 text-amber-200 border border-amber-300/40"
+                      }`}
+                    >
+                      {linkedPersonId === activePerson.id
+                        ? language === "km"
+                          ? "ខ្លួនខ្ញុំ ✓"
+                          : "ME ✓"
+                        : language === "km"
+                        ? "ជ្រើសរើសជាខ្លួនខ្ញុំ"
+                        : "Set as Me"}
+                    </button>
                   </div>
                   <p className="text-xs text-blue-100 mt-0.5 leading-relaxed">
                     {activePerson.gender === "MALE"
@@ -706,69 +817,85 @@ export function MobileRelationshipExplorer({
                 </div>
               </div>
 
-              {/* Automatic Kinship Banner: "How is this person related to ME?" with inline identity selector */}
+              {/* Kinship Relationship Calculator Box: "ទំនាក់ទំនងសាច់ញាតិ (ត្រូវជាអ្វីនឹងអ្នក)" */}
               <div className="mt-3 pt-2.5 border-t border-white/15 flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2 bg-white/10 rounded-xl px-3 py-2.5 border border-white/15">
-                  <div className="flex items-start gap-2 min-w-0 flex-1">
-                    <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-1" />
-                    <div className="text-xs min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1 text-blue-100 text-[11px] mb-1 leading-relaxed">
-                        <span>
-                          {language === "km" ? "ត្រូវជាអ្វីនឹងអ្នក (" : "Relation to you ("}
-                        </span>
-                        <select
-                          value={linkedPersonId || ""}
-                          onChange={(e) => {
-                            if (e.target.value) onClaimIdentity(e.target.value);
-                          }}
-                          className="bg-white/15 text-amber-200 font-bold rounded-lg px-2 py-1 text-[11px] border border-white/25 focus:outline-none cursor-pointer max-w-[180px] leading-relaxed"
-                          title={language === "km" ? "ជ្រើសរើសឈ្មោះរបស់អ្នក" : "Select your identity"}
-                        >
-                          <option value="" className="text-slate-900">
-                            {language === "km" ? "-- ជ្រើសរើសឈ្មោះអ្នក --" : "-- Select Yourself --"}
-                          </option>
-                          {people.map((p) => (
-                            <option key={p.id} value={p.id} className="text-slate-900">
-                              {getDisplayName(p)}
-                            </option>
-                          ))}
-                        </select>
-                        <span>)៖</span>
-                      </div>
-                      {linkedPersonId ? (
-                        linkedPersonId === activePerson.id ? (
-                          <span className="inline-block font-extrabold text-amber-300 text-sm leading-relaxed py-0.5">
-                            {language === "km" ? "ខ្លួនអ្នកផ្ទាល់ (Self)" : "Yourself (Self)"}
-                          </span>
-                        ) : kinshipToMe && kinshipToMe.determined ? (
-                          <span className="inline-block font-extrabold text-amber-300 text-sm leading-relaxed py-0.5">
-                            {language === "km"
-                              ? kinshipToMe.relationshipNameKm
-                              : kinshipToMe.relationshipNameEn}
-                          </span>
-                        ) : (
-                          <span className="inline-block text-blue-200 text-xs leading-relaxed py-0.5">
-                            {language === "km" ? "សាច់ញាតិក្នុងគ្រួសារ" : "Family Relative"}
-                          </span>
-                        )
-                      ) : (
-                        <span className="inline-block text-amber-200 text-[11px] font-semibold leading-relaxed py-0.5">
-                          {language === "km"
-                            ? "សូមជ្រើសរើសឈ្មោះអ្នកខាងលើ ឬចុច «ជាខ្លួនខ្ញុំ»"
-                            : "Select your name above or tap 'Me'"}
-                        </span>
-                      )}
+                <div className="bg-white/10 rounded-xl px-3 py-2.5 border border-white/15 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                      <span className="text-xs font-extrabold text-amber-300 leading-relaxed">
+                        {language === "km"
+                          ? "ទំនាក់ទំនងសាច់ញាតិ (គណនាខ្សែញាតិ)"
+                          : "Kinship Relationship Calculator"}
+                      </span>
                     </div>
-                  </div>
-                  {linkedPersonId &&
-                    linkedPersonId !== activePerson.id &&
-                    kinshipToMe &&
-                    kinshipToMe.determined && (
-                      <span className="px-2 py-1 rounded-lg bg-white/15 text-[10px] font-semibold shrink-0 leading-relaxed">
-                        {kinshipToMe.degreeOfSeparation}{" "}
+                    {kinshipActiveToCompare && kinshipActiveToCompare.determined && (
+                      <span className="px-2 py-0.5 rounded-lg bg-white/15 text-[10px] font-semibold shrink-0 leading-relaxed">
+                        {kinshipActiveToCompare.degreeOfSeparation}{" "}
                         {language === "km" ? "ជំហាន" : "steps"}
                       </span>
                     )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-blue-100 text-[11px] leading-relaxed">
+                      {language === "km"
+                        ? `${getDisplayName(activePerson)} ត្រូវជាអ្វីនឹងអ្នក (`
+                        : `How is ${getDisplayName(activePerson)} related to (`}
+                    </span>
+                    <select
+                      value={effectiveCompareId}
+                      onChange={(e) => setComparePersonId(e.target.value)}
+                      className="bg-white/15 hover:bg-white/25 text-amber-200 font-bold rounded-lg px-2.5 py-1 text-[11.5px] border border-white/30 focus:outline-none cursor-pointer max-w-[200px] leading-relaxed"
+                      title={
+                        language === "km"
+                          ? "ជ្រើសរើសសមាជិកដើម្បីគណនាទំនាក់ទំនងសាច់ញាតិ"
+                          : "Choose person to calculate relationship"
+                      }
+                    >
+                      {people
+                        .filter((p) => p.id !== activePerson.id)
+                        .map((p) => (
+                          <option key={p.id} value={p.id} className="text-slate-900 font-semibold">
+                            {getDisplayName(p)}
+                          </option>
+                        ))}
+                    </select>
+                    <span className="text-blue-100 text-[11px] leading-relaxed">)៖</span>
+                  </div>
+
+                  {effectiveComparePerson && kinshipActiveToCompare && kinshipActiveToCompare.determined ? (
+                    <div className="p-2.5 rounded-xl bg-slate-950/25 border border-white/15 space-y-1">
+                      <div className="text-xs leading-relaxed flex flex-wrap items-center gap-1.5">
+                        <span className="text-blue-100">{getDisplayName(activePerson)} ត្រូវជា៖</span>
+                        <span className="font-extrabold text-amber-300 text-sm px-2 py-0.5 rounded-lg bg-amber-400/20 border border-amber-300/40 leading-relaxed">
+                          {language === "km"
+                            ? kinshipActiveToCompare.relationshipNameKm
+                            : kinshipActiveToCompare.relationshipNameEn}
+                        </span>
+                        <span className="text-blue-100">
+                          របស់ {getDisplayName(effectiveComparePerson)}
+                        </span>
+                      </div>
+                      {kinshipCompareToActive && kinshipCompareToActive.determined && (
+                        <div className="text-[11px] text-blue-100/90 leading-relaxed">
+                          <span>ហើយ {getDisplayName(effectiveComparePerson)} ត្រូវជា៖ </span>
+                          <span className="font-bold text-emerald-300">
+                            {language === "km"
+                              ? kinshipCompareToActive.relationshipNameKm
+                              : kinshipCompareToActive.relationshipNameEn}
+                          </span>
+                          <span> របស់ {getDisplayName(activePerson)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-amber-200 font-medium leading-relaxed">
+                      {language === "km"
+                        ? "សូមជ្រើសរើសឈ្មោះសមាជិកខាងលើ ដើម្បីគណនាទំនាក់ទំនងសាច់ញាតិ"
+                        : "Select a family member above to calculate kinship"}
+                    </p>
+                  )}
                 </div>
               </div>
 
