@@ -1,12 +1,11 @@
 import fs from "fs";
 import path from "path";
+import { doc, getDoc, updateDoc, setDoc, deleteField } from "firebase/firestore";
+import { getFirestoreDb } from "./config";
+import { resolveFirebaseSpaceId, DEFAULT_TIENG_SPACE_ID } from "./rtdb";
 import type { TreePerson, TreeRelationship } from "../tree-layout";
 
-const DEFAULT_RTDB_URL =
-  process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ||
-  "https://familytree-6d3ee-default-rtdb.firebaseio.com";
-
-export const DEFAULT_TIENG_SPACE_ID = "cmvgs3h5y0000v974bjsev5y1";
+export { DEFAULT_TIENG_SPACE_ID };
 
 interface RTDBSpaceNode {
   space?: {
@@ -17,6 +16,12 @@ interface RTDBSpaceNode {
   };
   people?: Record<string, TreePerson>;
   relationships?: Record<string, TreeRelationship>;
+}
+
+function sanitizeForFirestore<T>(obj: T): T {
+  return JSON.parse(
+    JSON.stringify(obj, (_k, v) => (v === undefined ? null : v))
+  );
 }
 
 function readBundledExport(): Record<string, RTDBSpaceNode> {
@@ -37,20 +42,17 @@ export async function fetchSpaceFromRTDB(spaceId?: string): Promise<{
   people: TreePerson[];
   relationships: TreeRelationship[];
 }> {
-  const targetId =
-    !spaceId || spaceId === "family-heritage-space" || spaceId === "default-space"
-      ? DEFAULT_TIENG_SPACE_ID
-      : spaceId;
+  const targetId = resolveFirebaseSpaceId(spaceId);
+  const db = getFirestoreDb();
 
-  try {
-    const res = await fetch(`${DEFAULT_RTDB_URL}/spaces/${targetId}.json`, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const val = (await res.json()) as RTDBSpaceNode | null;
-      if (val && (val.people || val.space)) {
-        const people = Object.values(val.people || {});
-        const relationships = Object.values(val.relationships || {});
+  if (db) {
+    try {
+      const spaceRef = doc(db, "spaces", targetId);
+      const snap = await getDoc(spaceRef);
+      if (snap.exists()) {
+        const val = snap.data() as RTDBSpaceNode;
+        const people = Object.values(val.people || {}).filter(Boolean);
+        const relationships = Object.values(val.relationships || {}).filter(Boolean);
         const rawName = val.space?.name;
         const name =
           !rawName ||
@@ -58,15 +60,18 @@ export async function fetchSpaceFromRTDB(spaceId?: string): Promise<{
           rawName === "ពង្សាវតារគ្រួសារ (Family Heritage)"
             ? "កូនចៅត្រកូល ទៀង"
             : rawName;
-        return {
-          space: { id: targetId, name },
-          people,
-          relationships,
-        };
+
+        if (people.length > 0) {
+          return {
+            space: { id: targetId, name },
+            people,
+            relationships,
+          };
+        }
       }
+    } catch (err) {
+      console.warn("Firestore server fetch notice:", err);
     }
-  } catch (err) {
-    console.warn("RTDB REST fetch fallback notice:", err);
   }
 
   const bundled = readBundledExport();
@@ -94,23 +99,48 @@ export async function savePersonToRTDBRest(
   person: TreePerson,
   relationships: TreeRelationship[]
 ): Promise<void> {
-  const targetId =
-    !spaceId || spaceId === "family-heritage-space" || spaceId === "default-space"
-      ? DEFAULT_TIENG_SPACE_ID
-      : spaceId;
+  const db = getFirestoreDb();
+  if (!db) return;
+
+  const targetId = resolveFirebaseSpaceId(spaceId);
+  const spaceRef = doc(db, "spaces", targetId);
+  const nowIso = new Date().toISOString();
+
+  const cleanPerson = sanitizeForFirestore({
+    ...person,
+    createdAt: (person as unknown as { createdAt?: string }).createdAt || nowIso,
+    updatedAt: nowIso,
+  });
 
   const updates: Record<string, unknown> = {
-    [`people/${person.id}`]: person,
+    [`people.${person.id}`]: cleanPerson,
   };
+
   for (const rel of relationships) {
-    updates[`relationships/${rel.id}`] = rel;
+    updates[`relationships.${rel.id}`] = sanitizeForFirestore({
+      ...rel,
+      status: rel.status || "CONFIRMED",
+      createdAt: (rel as unknown as { createdAt?: string }).createdAt || nowIso,
+      updatedAt: nowIso,
+    });
   }
 
-  await fetch(`${DEFAULT_RTDB_URL}/spaces/${targetId}.json`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
+  try {
+    await updateDoc(spaceRef, updates);
+  } catch {
+    const relMap: Record<string, unknown> = {};
+    for (const rel of relationships) {
+      relMap[rel.id] = sanitizeForFirestore(rel);
+    }
+    await setDoc(
+      spaceRef,
+      {
+        people: { [person.id]: cleanPerson },
+        relationships: relMap,
+      },
+      { merge: true }
+    );
+  }
 }
 
 export async function patchPersonInRTDBRest(
@@ -118,25 +148,40 @@ export async function patchPersonInRTDBRest(
   personId: string,
   updates: Partial<TreePerson>
 ): Promise<TreePerson | null> {
-  const targetId =
-    !spaceId || spaceId === "family-heritage-space" || spaceId === "default-space"
-      ? DEFAULT_TIENG_SPACE_ID
-      : spaceId;
+  const db = getFirestoreDb();
+  if (!db) return null;
 
-  await fetch(`${DEFAULT_RTDB_URL}/spaces/${targetId}/people/${personId}.json`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    }),
+  const targetId = resolveFirebaseSpaceId(spaceId);
+  const spaceRef = doc(db, "spaces", targetId);
+  const cleanUpdates = sanitizeForFirestore({
+    ...updates,
+    id: personId,
+    updatedAt: new Date().toISOString(),
   });
 
-  const res = await fetch(`${DEFAULT_RTDB_URL}/spaces/${targetId}/people/${personId}.json`, {
-    cache: "no-store",
-  });
-  if (res.ok) {
-    return (await res.json()) as TreePerson;
+  const fieldUpdates: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(cleanUpdates)) {
+    fieldUpdates[`people.${personId}.${key}`] = value;
+  }
+
+  try {
+    await updateDoc(spaceRef, fieldUpdates);
+  } catch {
+    await setDoc(
+      spaceRef,
+      { people: { [personId]: cleanUpdates } },
+      { merge: true }
+    );
+  }
+
+  try {
+    const snap = await getDoc(spaceRef);
+    if (snap.exists()) {
+      const val = snap.data() as RTDBSpaceNode;
+      return val.people?.[personId] || null;
+    }
+  } catch {
+    // ignore
   }
   return null;
 }
@@ -145,24 +190,22 @@ export async function removePersonFromRTDBRest(
   spaceId: string,
   personId: string
 ): Promise<void> {
-  const targetId =
-    !spaceId || spaceId === "family-heritage-space" || spaceId === "default-space"
-      ? DEFAULT_TIENG_SPACE_ID
-      : spaceId;
+  const db = getFirestoreDb();
+  if (!db) return;
 
+  const targetId = resolveFirebaseSpaceId(spaceId);
+  const spaceRef = doc(db, "spaces", targetId);
   const current = await fetchSpaceFromRTDB(targetId);
-  const updates: Record<string, null> = {
-    [`people/${personId}`]: null,
+
+  const updates: Record<string, unknown> = {
+    [`people.${personId}`]: deleteField(),
   };
+
   for (const rel of current.relationships) {
     if (rel.personId === personId || rel.relatedPersonId === personId) {
-      updates[`relationships/${rel.id}`] = null;
+      updates[`relationships.${rel.id}`] = deleteField();
     }
   }
 
-  await fetch(`${DEFAULT_RTDB_URL}/spaces/${targetId}.json`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
+  await updateDoc(spaceRef, updates);
 }

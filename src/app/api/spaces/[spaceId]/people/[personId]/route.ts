@@ -64,7 +64,7 @@ export async function GET(
     });
 
     if (!person || person.spaceId !== spaceId) {
-      return NextResponse.json({ error: "Person not found in this space" }, { status: 404 });
+      throw new Error("PERSON_NOT_IN_LOCAL_PG");
     }
 
     const parents = person.relationshipsAsTarget
@@ -194,7 +194,7 @@ export async function PATCH(
     });
 
     if (!person || person.spaceId !== spaceId) {
-      return NextResponse.json({ error: "Person not found" }, { status: 404 });
+      throw new Error("PERSON_NOT_IN_LOCAL_PG");
     }
 
     const updated = await prisma.person.update({
@@ -213,6 +213,10 @@ export async function PATCH(
         biography: parsed.data.biography,
       },
     });
+
+    await patchPersonInRTDBRest(spaceId, personId, parsed.data).catch((err) =>
+      console.warn("Server Firestore patch notice:", err)
+    );
 
     await recordAuditLog({
       spaceId,
@@ -272,10 +276,7 @@ export async function DELETE(
     });
 
     if (!person || person.spaceId !== spaceId) {
-      return NextResponse.json(
-        { error: "Person not found in this space" },
-        { status: 404 }
-      );
+      throw new Error("PERSON_NOT_IN_LOCAL_PG");
     }
 
     const relCount =
@@ -287,9 +288,14 @@ export async function DELETE(
       data: { suggestedPersonId: null },
     });
 
+    // Delete person record (cascades relationships and memory tags, sets space_member.personId to null)
     await prisma.person.delete({
       where: { id: personId },
     });
+
+    await removePersonFromRTDBRest(spaceId, personId).catch((err) =>
+      console.warn("Server Firestore delete notice:", err)
+    );
 
     await recordAuditLog({
       spaceId,

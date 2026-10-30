@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getDatabase, type Database } from "firebase/database";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "familytree-6d3ee";
 const defaultDbUrl =
@@ -33,7 +33,7 @@ export function isFirebaseConfigured(): boolean {
 }
 
 let app: FirebaseApp | null = null;
-let database: Database | null = null;
+let firestoreDb: Firestore | null = null;
 
 export function getFirebaseApp(): FirebaseApp | null {
   if (!isFirebaseConfigured()) return null;
@@ -43,13 +43,13 @@ export function getFirebaseApp(): FirebaseApp | null {
   return app;
 }
 
-export function getRTDB(): Database | null {
+export function getFirestoreDb(): Firestore | null {
   if (!isFirebaseConfigured()) return null;
-  if (!database) {
+  if (!firestoreDb) {
     const firebaseApp = getFirebaseApp();
     if (firebaseApp) {
-      database = getDatabase(firebaseApp);
+      firestoreDb = getFirestore(firebaseApp);
     }
   }
-  return database;
+  return firestoreDb;
 }

@@ -1,64 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchSpaceFromRTDB } from "@/lib/firebase/rtdb-server";
+import type { TreePerson, TreeRelationship } from "@/lib/tree-layout";
 
 export async function GET(req: NextRequest) {
   const cookieLinkedId = req.cookies.get("family_linked_person_id")?.value || null;
 
+  // 1. Always fetch live Cloud Firestore state so real-time cloud updates are reflected
+  const rtdbData = await fetchSpaceFromRTDB();
+  const mergedPeopleMap = new Map<string, TreePerson>();
+  const mergedRelsMap = new Map<string, TreeRelationship>();
+
+  for (const p of rtdbData.people) {
+    if (p && p.id) mergedPeopleMap.set(p.id, p);
+  }
+  for (const r of rtdbData.relationships) {
+    if (r && r.id) mergedRelsMap.set(r.id, r);
+  }
+
+  let spaceId = rtdbData.space.id;
+  let spaceName = rtdbData.space.name || "កូនចៅត្រកូល ទៀង";
+
   try {
-    // 1. Find primary family space in PostgreSQL
     const space = await prisma.familySpace.findFirst({
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, slug: true, description: true },
     });
 
     if (space) {
-      const people = await prisma.person.findMany({
-        where: { spaceId: space.id },
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      });
+      spaceId = space.id;
+      if (
+        space.name &&
+        space.name !== "មែកធាងគ្រួសារ ទៀង (Tieng Family Heritage)" &&
+        space.name !== "ពង្សាវតារគ្រួសារ (Family Heritage)"
+      ) {
+        spaceName = space.name;
+      }
 
-      const relationships = await prisma.relationship.findMany({
-        where: { spaceId: space.id },
-      });
-
-      if (people.length > 0) {
-        const validLinkedId =
-          cookieLinkedId && people.some((p) => p.id === cookieLinkedId)
-            ? cookieLinkedId
-            : null;
-
-        const normalizedSpaceName =
-          !space.name ||
-          space.name === "មែកធាងគ្រួសារ ទៀង (Tieng Family Heritage)" ||
-          space.name === "ពង្សាវតារគ្រួសារ (Family Heritage)"
-            ? "កូនចៅត្រកូល ទៀង"
-            : space.name;
-
-        return NextResponse.json({
-          space: { id: space.id, name: normalizedSpaceName },
-          people,
-          relationships,
-          userRole: "OWNER",
-          linkedPersonId: validLinkedId,
+      // If Firestore had data, prefer Firestore as the real-time source of truth;
+      // otherwise populate from local PostgreSQL
+      if (mergedPeopleMap.size === 0) {
+        const dbPeople = await prisma.person.findMany({
+          where: { spaceId: space.id },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         });
+        const dbRels = await prisma.relationship.findMany({
+          where: { spaceId: space.id },
+        });
+        for (const p of dbPeople) {
+          mergedPeopleMap.set(p.id, p as unknown as TreePerson);
+        }
+        for (const r of dbRels) {
+          mergedRelsMap.set(r.id, r as unknown as TreeRelationship);
+        }
       }
     }
   } catch (error: unknown) {
-    console.warn("GET /api/tree DB unavailable, using Firebase RTDB:", error);
+    console.warn("GET /api/tree DB unavailable, using Cloud Firestore:", error);
   }
 
-  // 2. Fallback to Firebase Realtime Database / bundled export (for Vercel serverless)
-  const rtdbData = await fetchSpaceFromRTDB();
+  const finalPeople = Array.from(mergedPeopleMap.values());
+  const finalRelationships = Array.from(mergedRelsMap.values());
+
   const validLinkedId =
-    cookieLinkedId && rtdbData.people.some((p) => p.id === cookieLinkedId)
+    cookieLinkedId && finalPeople.some((p) => p.id === cookieLinkedId)
       ? cookieLinkedId
       : null;
 
   return NextResponse.json({
-    space: rtdbData.space,
-    people: rtdbData.people,
-    relationships: rtdbData.relationships,
+    space: { id: spaceId, name: spaceName },
+    people: finalPeople,
+    relationships: finalRelationships,
     userRole: "OWNER",
     linkedPersonId: validLinkedId,
   });

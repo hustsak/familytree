@@ -1772,6 +1772,18 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         throw new Error(data.error || "Failed to update profile");
       }
 
+      // Sync edit to Firebase Cloud Firestore in real time
+      await updatePersonInRTDB(effectiveSpaceId, activeProfile.id, {
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim(),
+        khmerName: fullName || null,
+        gender: editGender as TreePerson["gender"],
+        birthYear: parsedBirthYear,
+        deathYear: parsedDeathYear,
+        isLiving: editIsLiving,
+        biography: editBio.trim() || null,
+      }).catch(console.warn);
+
       // Update active profile state
       setActiveProfile((prev) =>
         prev
@@ -1865,9 +1877,11 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         throw new Error(data.error || "Failed to add family member");
       }
 
-      // Sync to Firebase Realtime Database
+      // Sync to Firebase Cloud Firestore in real time before refreshing
       if (data.person) {
-        addPersonToRTDB(effectiveSpaceId, data.person, data.relationships || []).catch(console.warn);
+        await addPersonToRTDB(effectiveSpaceId, data.person, data.relationships || []).catch(
+          console.warn
+        );
       }
 
       try {
@@ -1908,8 +1922,10 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         throw new Error(data.error || "Failed to remove family member");
       }
 
-      // Sync deletion to Firebase Realtime Database
-      deletePersonFromRTDB(effectiveSpaceId, activeProfile.id, relationships).catch(console.warn);
+      // Sync deletion to Firebase Cloud Firestore in real time before refreshing
+      await deletePersonFromRTDB(effectiveSpaceId, activeProfile.id, relationships).catch(
+        console.warn
+      );
 
       setShowDeleteModal(false);
       const deletedName =

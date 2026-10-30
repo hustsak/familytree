@@ -96,10 +96,7 @@ export async function POST(
       });
 
       if (!foundAnchor) {
-        return NextResponse.json(
-          { error: "Anchor relative not found in this family space." },
-          { status: 404 }
-        );
+        throw new Error("ANCHOR_NOT_IN_LOCAL_PG");
       }
 
       anchorId = foundAnchor.id;
@@ -270,6 +267,13 @@ export async function POST(
         relationshipsCreatedCount: result.createdRelationships.length,
       },
     });
+
+    // Also sync to Cloud Firestore immediately from server
+    await savePersonToRTDBRest(
+      spaceId,
+      result.newPerson as unknown as TreePerson,
+      result.createdRelationships as unknown as TreeRelationship[]
+    ).catch((err) => console.warn("Server Firestore sync notice:", err));
 
     return NextResponse.json({
       success: true,
