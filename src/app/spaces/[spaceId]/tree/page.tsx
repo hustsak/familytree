@@ -555,6 +555,106 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
     return res.determined ? res : null;
   }, [activeProfile, linkedPersonId, people, relationships]);
 
+  // Compute full upward & downward lineage for the Desktop/Laptop Right Profile Drawer (matching MobileRelationshipExplorer)
+  const activeProfileLineage = useMemo(() => {
+    if (!activeProfile) {
+      return {
+        parents: [] as TreePerson[],
+        grandparents: [] as TreePerson[],
+        greatGrandparents: [] as TreePerson[],
+        luotAncestors: [] as TreePerson[],
+        spouses: [] as TreePerson[],
+        children: [] as TreePerson[],
+        spousesMap: new Map<string, TreePerson[]>(),
+        childrenMap: new Map<string, TreePerson[]>(),
+      };
+    }
+
+    const pMap = new Map<string, TreePerson>();
+    for (const p of people) pMap.set(p.id, p);
+
+    const directParentsMap = new Map<string, TreePerson[]>();
+    const directChildrenMap = new Map<string, TreePerson[]>();
+    const sMap = new Map<string, TreePerson[]>();
+
+    for (const r of relationships) {
+      if (r.status !== "CONFIRMED") continue;
+      if (r.type === "PARENT_CHILD" || r.type === "ADOPTIVE_PARENT_CHILD") {
+        const par = pMap.get(r.personId);
+        const ch = pMap.get(r.relatedPersonId);
+        if (par && ch) {
+          const pList = directParentsMap.get(ch.id) || [];
+          if (!pList.some((x) => x.id === par.id)) pList.push(par);
+          directParentsMap.set(ch.id, pList);
+
+          const cList = directChildrenMap.get(par.id) || [];
+          if (!cList.some((x) => x.id === ch.id)) cList.push(ch);
+          directChildrenMap.set(par.id, cList);
+        }
+      } else if (r.type === "SPOUSE") {
+        const p1 = pMap.get(r.personId);
+        const p2 = pMap.get(r.relatedPersonId);
+        if (p1 && p2) {
+          const s1 = sMap.get(p1.id) || [];
+          if (!s1.some((x) => x.id === p2.id)) s1.push(p2);
+          sMap.set(p1.id, s1);
+
+          const s2 = sMap.get(p2.id) || [];
+          if (!s2.some((x) => x.id === p1.id)) s2.push(p1);
+          sMap.set(p2.id, s2);
+        }
+      }
+    }
+
+    const getFullParents = (personId: string): TreePerson[] => {
+      const pSet = new Map<string, TreePerson>();
+      for (const pr of directParentsMap.get(personId) || []) {
+        pSet.set(pr.id, pr);
+        for (const sp of sMap.get(pr.id) || []) {
+          pSet.set(sp.id, sp);
+        }
+      }
+      return Array.from(pSet.values());
+    };
+
+    const pars = getFullParents(activeProfile.id);
+
+    const gpMap = new Map<string, TreePerson>();
+    for (const pr of pars) {
+      for (const gp of getFullParents(pr.id)) gpMap.set(gp.id, gp);
+    }
+    const gps = Array.from(gpMap.values());
+
+    const ggpMap = new Map<string, TreePerson>();
+    for (const gp of gps) {
+      for (const ggp of getFullParents(gp.id)) ggpMap.set(ggp.id, ggp);
+    }
+    const ggps = Array.from(ggpMap.values());
+
+    const luotMap = new Map<string, TreePerson>();
+    for (const ggp of ggps) {
+      for (const l of getFullParents(ggp.id)) luotMap.set(l.id, l);
+    }
+    const luots = Array.from(luotMap.values());
+
+    const chSet = new Map<string, TreePerson>();
+    for (const ch of directChildrenMap.get(activeProfile.id) || []) chSet.set(ch.id, ch);
+    for (const sp of sMap.get(activeProfile.id) || []) {
+      for (const ch of directChildrenMap.get(sp.id) || []) chSet.set(ch.id, ch);
+    }
+
+    return {
+      parents: pars,
+      grandparents: gps,
+      greatGrandparents: ggps,
+      luotAncestors: luots,
+      spouses: sMap.get(activeProfile.id) || [],
+      children: Array.from(chSet.values()),
+      spousesMap: sMap,
+      childrenMap: directChildrenMap,
+    };
+  }, [activeProfile, people, relationships]);
+
   // Ref to break circular closure in node callbacks
   const applyLayoutRef = useRef<
     (
@@ -1968,7 +2068,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
           </div>
 
           {/* Mobile View Switcher Pill (Relationships vs Tree Map) */}
-          <div className="flex sm:hidden items-center bg-[#eef5fc] p-0.5 rounded-full border border-[#dbe7f5] shrink-0">
+          <div className="flex items-center bg-[#eef5fc] p-0.5 rounded-full border border-[#dbe7f5] shrink-0">
             <button
               type="button"
               onClick={() => setMobileViewMode("CARDS")}
@@ -2022,8 +2122,8 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
 
         {/* Quick Hierarchy Action Controls (Expand all, Collapse to Gen 3, Fit to screen) */}
         <div
-          className={`absolute top-12 xs:top-14 sm:top-4 sm:left-[460px] z-30 ${
-            mobileViewMode === "CARDS" ? "hidden sm:flex" : "flex"
+          className={`absolute top-12 xs:top-14 sm:top-4 sm:left-[565px] z-30 ${
+            mobileViewMode === "CARDS" ? "hidden" : "flex"
           } items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-2xl sm:rounded-full border border-[#dbe7f5] shadow-md font-khmer select-none`}
           style={{
             backgroundColor: "rgba(255, 255, 255, 0.94)",
@@ -2189,7 +2289,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
           <>
             {/* Mobile Easy Relationship Explorer (Default on mobile <640px when in CARDS mode) */}
             {mobileViewMode === "CARDS" && (
-              <div className="sm:hidden absolute inset-0 z-20">
+              <div className="absolute inset-0 z-20">
                 <MobileRelationshipExplorer
                   people={people}
                   relationships={relationships}
@@ -2314,7 +2414,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         {/* Floating Zoom & Navigation Toolbar (Shifted up on mobile to leave room for bottom dock) */}
         <div
           className={`${
-            mobileViewMode === "CARDS" ? "hidden sm:flex" : "flex"
+            mobileViewMode === "CARDS" ? "hidden" : "flex"
           } absolute bottom-20 sm:bottom-6 right-3 sm:right-6 z-30 flex-col items-center gap-1.5 p-1.5 rounded-2xl bg-white/92 backdrop-blur-md border border-[#dbe7f5] shadow-xl shadow-[#2f7de1]/15 font-khmer select-none`}
         >
           <button
@@ -2495,7 +2595,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         {/* Selected Person Profile Drawer (Mobile Bottom Sheet / Desktop Right Drawer) */}
         {(activeProfile || profileLoading) && (
           <div
-            className={`fixed inset-x-0 bottom-0 max-h-[88vh] sm:max-h-none sm:top-4 sm:right-4 sm:bottom-4 sm:left-auto sm:w-96 p-5 sm:p-6 z-40 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-bottom sm:slide-in-from-right duration-200 rounded-t-3xl sm:rounded-2xl border-t sm:border ${
+            className={`fixed inset-x-0 bottom-0 max-h-[88vh] sm:max-h-none sm:top-4 sm:right-4 sm:bottom-4 sm:left-auto sm:w-[420px] p-5 sm:p-6 z-40 overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-bottom sm:slide-in-from-right duration-200 rounded-t-3xl sm:rounded-2xl border-t sm:border ${
               treeTheme === "light"
                 ? "bg-white border-slate-200 text-slate-900 shadow-2xl tree-drawer-light"
                 : "heritage-card-elevated text-white"
@@ -2564,6 +2664,114 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                     >
                       <X className="w-5 h-5" />
                     </button>
+                  </div>
+
+                  {/* Interactive Kinship to "Me" Selector & Quick Add Bar (Mobile-style clarity on Laptop) */}
+                  <div className="mb-4 p-3 rounded-2xl bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#0284c7] text-white shadow-md border border-blue-400/30 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <Sparkles className="w-4 h-4 text-amber-300 shrink-0 mt-1" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1 text-blue-100 text-[11px] mb-1 leading-relaxed">
+                            <span>
+                              {language === "km" ? "ត្រូវជាអ្វីនឹងអ្នក (" : "Relation to you ("}
+                            </span>
+                            <select
+                              value={linkedPersonId || ""}
+                              onChange={(e) => {
+                                if (e.target.value) handleClaimIdentity(e.target.value);
+                              }}
+                              className="bg-white/15 text-amber-200 font-bold rounded-lg px-2 py-0.5 text-[11px] border border-white/25 focus:outline-none cursor-pointer max-w-[165px] leading-relaxed"
+                              title={language === "km" ? "ជ្រើសរើសឈ្មោះរបស់អ្នក" : "Select your identity"}
+                            >
+                              <option value="" className="text-slate-900">
+                                {language === "km" ? "-- ជ្រើសរើសឈ្មោះអ្នក --" : "-- Select Yourself --"}
+                              </option>
+                              {people.map((p) => (
+                                <option key={p.id} value={p.id} className="text-slate-900">
+                                  {p.khmerName || `${p.lastName} ${p.firstName}`.trim()}
+                                </option>
+                              ))}
+                            </select>
+                            <span>)៖</span>
+                          </div>
+                          {linkedPersonId ? (
+                            linkedPersonId === activeProfile.id ? (
+                              <span className="inline-block font-extrabold text-amber-300 text-sm leading-relaxed py-0.5">
+                                {language === "km" ? "ខ្លួនអ្នកផ្ទាល់ (Self)" : "Yourself (Self)"}
+                              </span>
+                            ) : activeProfileKinshipToMe ? (
+                              <span className="inline-block font-extrabold text-amber-300 text-sm leading-relaxed py-0.5">
+                                {language === "km"
+                                  ? activeProfileKinshipToMe.relationshipNameKm
+                                  : activeProfileKinshipToMe.relationshipNameEn}
+                              </span>
+                            ) : (
+                              <span className="inline-block text-blue-100 text-xs leading-relaxed py-0.5">
+                                {language === "km" ? "សាច់ញាតិក្នុងគ្រួសារ" : "Family Relative"}
+                              </span>
+                            )
+                          ) : (
+                            <span className="inline-block text-amber-200 text-[11px] font-semibold leading-relaxed py-0.5">
+                              {language === "km"
+                                ? "ជ្រើសរើសឈ្មោះអ្នកខាងលើដើម្បីមើលខ្សែញាតិ"
+                                : "Select your name above to see kinship"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {activeProfileKinshipToMe && (
+                        <span className="px-2 py-0.5 rounded-lg bg-white/15 text-[10px] font-semibold shrink-0 leading-relaxed">
+                          {activeProfileKinshipToMe.degreeOfSeparation}{" "}
+                          {language === "km" ? "ជំហាន" : "steps"}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick 1-Tap Relative Actions */}
+                    <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-white/15">
+                      {canAddRelative && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddModal(activeProfile.id, "CHILD")}
+                            className="py-1.5 px-1.5 rounded-xl bg-white text-[#1e3a8a] font-bold text-[10.5px] flex items-center justify-center gap-1 shadow-xs active:scale-95 cursor-pointer leading-relaxed"
+                          >
+                            <Plus className="w-3 h-3 text-[#2f7de1] shrink-0" />
+                            <span>{language === "km" ? "បន្ថែមកូន" : "Child"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddModal(activeProfile.id, "SPOUSE")}
+                            className="py-1.5 px-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-[10.5px] flex items-center justify-center gap-1 border border-white/20 active:scale-95 cursor-pointer leading-relaxed"
+                          >
+                            <Plus className="w-3 h-3 text-sky-200 shrink-0" />
+                            <span>{language === "km" ? "ប្តី/ប្រពន្ធ" : "Spouse"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAddModal(activeProfile.id, "PARENT")}
+                            className="py-1.5 px-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-[10.5px] flex items-center justify-center gap-1 border border-white/20 active:scale-95 cursor-pointer leading-relaxed"
+                          >
+                            <Plus className="w-3 h-3 text-amber-200 shrink-0" />
+                            <span>{language === "km" ? "ឪពុកម្តាយ" : "Parent"}</span>
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPersonId(activeProfile.id);
+                          setActiveProfile(null);
+                          setMobileViewMode("CARDS");
+                        }}
+                        className="py-1.5 px-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-[10.5px] flex items-center justify-center gap-1 shadow-xs active:scale-95 cursor-pointer leading-relaxed"
+                        title="បើកទំព័រខ្សែញាតិពេញ (Open Full Relationship Explorer)"
+                      >
+                        <Sparkles className="w-3 h-3 shrink-0" />
+                        <span>{language === "km" ? "ខ្សែញាតិ" : "Hub"}</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Branch Focus, Descendant Focus & Status Badges */}
@@ -2905,18 +3113,104 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
 
                       {/* Verified Kinship Relationships */}
                       <div className="space-y-3">
+                        {/* Upward Ancestors: លួត • ទួត • ជីដូនជីតា */}
+                        {(activeProfileLineage.luotAncestors.length > 0 ||
+                          activeProfileLineage.greatGrandparents.length > 0 ||
+                          activeProfileLineage.grandparents.length > 0) && (
+                          <div className="p-2.5 rounded-xl bg-[#f8fbff] border border-[#dbe7f5] space-y-2">
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-[#6a7f99] block leading-relaxed">
+                              {language === "km"
+                                ? "បុព្វការីជន (លួត • ទួត • ជីដូនជីតា)"
+                                : "Ancestors (Great-Grandparents & Grandparents)"}
+                            </span>
+                            {activeProfileLineage.luotAncestors.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {activeProfileLineage.luotAncestors.map((l) => (
+                                  <button
+                                    key={l.id}
+                                    type="button"
+                                    onClick={() => handleSelectSearchResult(l.id)}
+                                    className="px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-950 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer leading-relaxed"
+                                  >
+                                    <span className="px-1.5 py-0.5 rounded bg-purple-200/80 text-purple-900 text-[9.5px] font-bold leading-relaxed">
+                                      {language === "km" ? "លួត" : "2x Great-Grandparent"}
+                                    </span>
+                                    <span className="font-bold leading-relaxed">
+                                      {l.khmerName || `${l.lastName} ${l.firstName}`.trim()}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {activeProfileLineage.greatGrandparents.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {activeProfileLineage.greatGrandparents.map((ggp) => (
+                                  <button
+                                    key={ggp.id}
+                                    type="button"
+                                    onClick={() => handleSelectSearchResult(ggp.id)}
+                                    className="px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-950 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer leading-relaxed"
+                                  >
+                                    <span className="px-1.5 py-0.5 rounded bg-indigo-200/80 text-indigo-900 text-[9.5px] font-bold leading-relaxed">
+                                      {ggp.gender === "FEMALE"
+                                        ? language === "km"
+                                          ? "ទួតស្រី"
+                                          : "Great-Grandmother"
+                                        : ggp.gender === "MALE"
+                                        ? language === "km"
+                                          ? "ទួតប្រុស"
+                                          : "Great-Grandfather"
+                                        : language === "km"
+                                        ? "ទួត"
+                                        : "Great-Grandparent"}
+                                    </span>
+                                    <span className="font-bold leading-relaxed">
+                                      {ggp.khmerName || `${ggp.lastName} ${ggp.firstName}`.trim()}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {activeProfileLineage.grandparents.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {activeProfileLineage.grandparents.map((gp) => (
+                                  <button
+                                    key={gp.id}
+                                    type="button"
+                                    onClick={() => handleSelectSearchResult(gp.id)}
+                                    className="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-950 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer leading-relaxed"
+                                  >
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900 text-[9.5px] font-bold leading-relaxed">
+                                      {gp.gender === "FEMALE"
+                                        ? language === "km"
+                                          ? "ជីដូន"
+                                          : "Grandmother"
+                                        : language === "km"
+                                        ? "ជីតា"
+                                        : "Grandfather"}
+                                    </span>
+                                    <span className="font-bold leading-relaxed">
+                                      {gp.khmerName || `${gp.lastName} ${gp.firstName}`.trim()}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Parents */}
                         <div>
                           <span className={`text-[10px] uppercase tracking-wider font-bold block mb-1 ${treeTheme === "light" ? "text-slate-500" : "text-slate-400"}`}>
-                            {language === "km" ? "ឪពុកម្តាយ" : "Parents"} ({activeProfile.parents.length})
+                            {language === "km" ? "ឪពុកម្តាយ" : "Parents"} ({activeProfileLineage.parents.length})
                           </span>
-                          {activeProfile.parents.length === 0 ? (
+                          {activeProfileLineage.parents.length === 0 ? (
                             <p className="text-[11px] text-slate-400 italic">
                               {language === "km" ? "មិនទាន់មានទិន្នន័យឪពុកម្តាយ" : "No parents recorded"}
                             </p>
                           ) : (
                             <div className="space-y-1">
-                              {activeProfile.parents.map((parent) => (
+                              {activeProfileLineage.parents.map((parent) => (
                                 <button
                                   key={parent.id}
                                   type="button"
@@ -2928,6 +3222,9 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                                   }`}
                                 >
                                   <span className="font-semibold">
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[9.5px] font-bold mr-1.5">
+                                      {parent.gender === "FEMALE" ? (language === "km" ? "ម្តាយ" : "Mother") : parent.gender === "MALE" ? (language === "km" ? "ឪពុក" : "Father") : (language === "km" ? "ឪពុកម្តាយ" : "Parent")}
+                                    </span>
                                     {parent.khmerName ||
                                       `${parent.lastName} ${parent.firstName}`.trim()}
                                   </span>
@@ -2961,6 +3258,9 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                                   }`}
                                 >
                                   <span className="font-semibold">
+                                    <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[9.5px] font-bold mr-1.5">
+                                      {sib.gender === "FEMALE" ? (language === "km" ? "បងប្អូនស្រី" : "Sister") : sib.gender === "MALE" ? (language === "km" ? "បងប្អូនប្រុស" : "Brother") : (language === "km" ? "បងប្អូន" : "Sibling")}
+                                    </span>
                                     {sib.khmerName ||
                                       `${sib.lastName} ${sib.firstName}`.trim()}
                                   </span>
@@ -2974,15 +3274,15 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                         {/* Children */}
                         <div>
                           <span className={`text-[10px] uppercase tracking-wider font-bold block mb-1 ${treeTheme === "light" ? "text-slate-500" : "text-slate-400"}`}>
-                            {language === "km" ? "កូនៗ" : "Children"} ({activeProfile.children.length})
+                            {language === "km" ? "កូនបង្កើត" : "Children"} ({activeProfileLineage.children.length})
                           </span>
-                          {activeProfile.children.length === 0 ? (
+                          {activeProfileLineage.children.length === 0 ? (
                             <p className="text-[11px] text-slate-400 italic">
                               {language === "km" ? "មិនទាន់មានកូនកត់ត្រា" : "No children recorded"}
                             </p>
                           ) : (
                             <div className="space-y-1">
-                              {activeProfile.children.map((child) => (
+                              {activeProfileLineage.children.map((child) => (
                                 <button
                                   key={child.id}
                                   type="button"
@@ -2994,6 +3294,9 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                                   }`}
                                 >
                                   <span className="font-semibold">
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9.5px] font-bold mr-1.5">
+                                      {child.gender === "FEMALE" ? (language === "km" ? "កូនស្រី" : "Daughter") : child.gender === "MALE" ? (language === "km" ? "កូនប្រុស" : "Son") : (language === "km" ? "កូន" : "Child")}
+                                    </span>
                                     {child.khmerName ||
                                       `${child.lastName} ${child.firstName}`.trim()}
                                   </span>
@@ -3005,13 +3308,13 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                         </div>
 
                         {/* Spouses */}
-                        {activeProfile.spouses.length > 0 && (
+                        {activeProfileLineage.spouses.length > 0 && (
                           <div>
                             <span className={`text-[10px] uppercase tracking-wider font-bold block mb-1 ${treeTheme === "light" ? "text-rose-600" : "text-rose-400"}`}>
-                              {language === "km" ? "ស្វាមី/ភរិយា" : "Spouses / Partners"} ({activeProfile.spouses.length})
+                              {language === "km" ? "ស្វាមី/ភរិយា" : "Spouses / Partners"} ({activeProfileLineage.spouses.length})
                             </span>
                             <div className="space-y-1">
-                              {activeProfile.spouses.map((spouse) => (
+                              {activeProfileLineage.spouses.map((spouse) => (
                                 <button
                                   key={spouse.id}
                                   type="button"
@@ -3023,6 +3326,9 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                                   }`}
                                 >
                                   <span className="font-semibold">
+                                    <span className="px-1.5 py-0.5 rounded bg-rose-200/80 text-rose-900 text-[9.5px] font-bold mr-1.5">
+                                      {spouse.gender === "FEMALE" ? (language === "km" ? "ភរិយា / ប្រពន្ធ" : "Wife") : spouse.gender === "MALE" ? (language === "km" ? "ស្វាមី / ប្តី" : "Husband") : (language === "km" ? "ដៃគូជីវិត" : "Spouse")}
+                                    </span>
                                     {spouse.khmerName ||
                                       `${spouse.lastName} ${spouse.firstName}`.trim()}
                                   </span>

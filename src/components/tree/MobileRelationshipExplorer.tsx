@@ -359,8 +359,8 @@ export function MobileRelationshipExplorer({
   if (!activePerson) return null;
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-gradient-to-b from-[#eef5ff] via-[#f5f9ff] to-[#ebf3fc] pt-28 pb-28 px-3 font-khmer select-none">
-      <div className="max-w-lg mx-auto space-y-3.5">
+    <div className="w-full h-full overflow-y-auto bg-gradient-to-b from-[#eef5ff] via-[#f5f9ff] to-[#ebf3fc] pt-28 sm:pt-20 pb-28 sm:pb-12 px-3 sm:px-6 font-khmer select-none">
+      <div className="max-w-lg md:max-w-4xl lg:max-w-5xl mx-auto space-y-3.5">
         {/* Top Segmented Mode Switcher: Family Hub vs All Generations */}
         <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-[#dbe7f5] shadow-sm flex items-center gap-1">
           <button
@@ -824,7 +824,7 @@ export function MobileRelationshipExplorer({
             </div>
 
             {/* 4. Spouses & Siblings Section (Same Generation) */}
-            <div className="grid grid-cols-1 gap-3">
+            <div className={`grid grid-cols-1 ${siblings.length > 0 ? "md:grid-cols-2" : ""} gap-3`}>
               {/* Spouse Card */}
               <div className="bg-white rounded-2xl border border-rose-200/90 p-3.5 shadow-xs space-y-2">
                 <div className="flex items-center justify-between">
@@ -996,7 +996,7 @@ export function MobileRelationshipExplorer({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {children.map((ch, idx) => {
                     const chSpouses = spousesMap.get(ch.id) || [];
                     const chChildren = childrenMap.get(ch.id) || [];
@@ -1140,7 +1140,7 @@ export function MobileRelationshipExplorer({
                   </button>
 
                   {isOpen && (
-                    <div className="p-2.5 divide-y divide-slate-100">
+                    <div className="p-2.5 grid grid-cols-1 md:grid-cols-2 gap-1.5 divide-y md:divide-y-0 divide-slate-100">
                       {genPeople.map((p) => {
                         const pParents = parentsMap.get(p.id) || [];
                         const pSpouses = spousesMap.get(p.id) || [];
