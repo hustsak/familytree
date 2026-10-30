@@ -301,7 +301,6 @@ export async function POST(
         deathYear: parsed.data.deathYear ?? null,
         isLiving: parsed.data.isLiving,
         isVerified: true,
-        isRestricted: false,
         photoUrl: parsed.data.photoUrl?.trim() || null,
         biography: parsed.data.biography?.trim() || null,
       };
@@ -320,7 +319,6 @@ export async function POST(
             relatedPersonId: anchorId,
             type: "PARENT_CHILD",
             status: "CONFIRMED",
-            isDisputed: false,
           });
         } else if (relInfo.type === "CHILD") {
           createdRelationships.push({
@@ -329,7 +327,6 @@ export async function POST(
             relatedPersonId: newPersonId,
             type: "PARENT_CHILD",
             status: "CONFIRMED",
-            isDisputed: false,
           });
           if (relInfo.alsoLinkSpouse) {
             const spouseRel = rtdbData.relationships.find(
@@ -350,7 +347,6 @@ export async function POST(
                 relatedPersonId: newPersonId,
                 type: "PARENT_CHILD",
                 status: "CONFIRMED",
-                isDisputed: false,
               });
             }
           }
@@ -361,7 +357,6 @@ export async function POST(
             relatedPersonId: newPersonId,
             type: "SPOUSE",
             status: "CONFIRMED",
-            isDisputed: false,
           });
         } else if (relInfo.type === "SIBLING") {
           const parentRels = rtdbData.relationships.filter(
@@ -377,7 +372,6 @@ export async function POST(
               relatedPersonId: newPersonId,
               type: "PARENT_CHILD",
               status: "CONFIRMED",
-              isDisputed: false,
             });
           }
         }
