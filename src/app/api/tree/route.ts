@@ -179,8 +179,15 @@ export async function GET(req: NextRequest) {
           ? cookieLinkedId
           : null;
 
+      const normalizedSpaceName =
+        !space.name ||
+        space.name === "មែកធាងគ្រួសារ ទៀង (Tieng Family Heritage)" ||
+        space.name === "ពង្សាវតារគ្រួសារ (Family Heritage)"
+          ? "កូនចៅត្រកូល ទៀង"
+          : space.name;
+
       return NextResponse.json({
-        space: { id: space.id, name: space.name },
+        space: { id: space.id, name: normalizedSpaceName },
         people,
         relationships,
         userRole: "OWNER",
@@ -190,7 +197,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Return fallback if no space exists yet
     return NextResponse.json({
-      space: { id: "default-space", name: "ពង្សាវតារគ្រួសារ (Family Heritage)" },
+      space: { id: "default-space", name: "កូនចៅត្រកូល ទៀង" },
       people: FALLBACK_LINEAGE_PEOPLE,
       relationships: FALLBACK_LINEAGE_RELATIONSHIPS,
       userRole: "OWNER",
@@ -199,7 +206,7 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     console.warn("GET /api/tree error, using fallback lineage:", error);
     return NextResponse.json({
-      space: { id: "default-space", name: "ពង្សាវតារគ្រួសារ (Family Heritage)" },
+      space: { id: "default-space", name: "កូនចៅត្រកូល ទៀង" },
       people: FALLBACK_LINEAGE_PEOPLE,
       relationships: FALLBACK_LINEAGE_RELATIONSHIPS,
       userRole: "OWNER",

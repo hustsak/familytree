@@ -213,7 +213,7 @@ export async function requireSpaceRole(
     joinedAt: new Date(),
     space: {
       id: spaceId,
-      name: "ពង្សាវតារគ្រួសារ (Family Heritage)",
+      name: "កូនចៅត្រកូល ទៀង",
       slug: "family-heritage",
       description: "ដែនពង្សាវតារនិងមែកធាងគ្រួសាររួម",
       createdAt: new Date(),

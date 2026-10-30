@@ -42,7 +42,12 @@ export function subscribeToTree(
       onData({
         space: {
           id: spaceId,
-          name: val.space?.name || "មែកធាងគ្រួសារ (Family Heritage)",
+          name:
+            !val.space?.name ||
+            val.space.name === "មែកធាងគ្រួសារ ទៀង (Tieng Family Heritage)" ||
+            val.space.name === "ពង្សាវតារគ្រួសារ (Family Heritage)"
+              ? "កូនចៅត្រកូល ទៀង"
+              : val.space.name,
         },
         people: peopleList,
         relationships: relationshipsList,

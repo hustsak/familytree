@@ -34,8 +34,15 @@ export async function GET(
       select: { id: true, name: true, slug: true, description: true },
     });
 
+    const normalizedSpaceName =
+      !space?.name ||
+      space.name === "មែកធាងគ្រួសារ ទៀង (Tieng Family Heritage)" ||
+      space.name === "ពង្សាវតារគ្រួសារ (Family Heritage)"
+        ? "កូនចៅត្រកូល ទៀង"
+        : space.name;
+
     return NextResponse.json({
-      space: space ? { id: space.id, name: space.name } : null,
+      space: space ? { id: space.id, name: normalizedSpaceName } : { id: spaceId, name: "កូនចៅត្រកូល ទៀង" },
       people: sanitizedPeople,
       relationships,
       userRole: membership.role,

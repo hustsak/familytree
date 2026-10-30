@@ -12,7 +12,7 @@ const createSpaceSchema = z.object({
 const DEFAULT_FAMILY_SPACES = [
   {
     id: "family-heritage-space",
-    name: "ពង្សាវតារគ្រួសារ (Family Heritage)",
+    name: "កូនចៅត្រកូល ទៀង",
     slug: "family-heritage",
     description: "ដែនពង្សាវតារនិងមែកធាងគ្រួសាររួម",
     role: "OWNER" as const,
@@ -82,7 +82,7 @@ export async function GET() {
         if (!space) {
           space = await prisma.familySpace.create({
             data: {
-              name: "ពង្សាវតារគ្រួសារ (Family Heritage)",
+              name: "កូនចៅត្រកូល ទៀង",
               slug: "family-heritage",
               description: "ដែនពង្សាវតារនិងមែកធាងគ្រួសាររួម",
             },

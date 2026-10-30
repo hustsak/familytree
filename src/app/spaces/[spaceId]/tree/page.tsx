@@ -2146,8 +2146,12 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#2f7de1] to-[#1c57b8] flex items-center justify-center text-white shadow-sm shrink-0">
               <TreePine className="w-4 h-4" />
             </div>
-            <h1 className="text-xs sm:text-sm font-bold text-[#1c2e48] leading-relaxed py-0.5 max-w-[120px] xs:max-w-[150px] sm:max-w-xs break-words">
-              {spaceInfo?.name || t.nav.tree}
+            <h1 className="text-xs sm:text-sm font-bold text-[#1c2e48] leading-relaxed py-0.5 max-w-[140px] xs:max-w-[170px] sm:max-w-xs break-words">
+              {!spaceInfo?.name ||
+              spaceInfo.name === "មែកធាងគ្រួសារ ទៀង (Tieng Family Heritage)" ||
+              spaceInfo.name === "ពង្សាវតារគ្រួសារ (Family Heritage)"
+                ? "កូនចៅត្រកូល ទៀង"
+                : spaceInfo.name}
             </h1>
             <span className="hidden xs:inline-flex px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#ebf3fc] text-[#2f7de1] border border-[#dbe7f5] shrink-0">
               {people.length}
