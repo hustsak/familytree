@@ -22,6 +22,8 @@ import {
   ArrowUpRight,
   Baby,
   Crown,
+  Link2,
+  Check,
 } from "lucide-react";
 
 interface MobileRelationshipExplorerProps {
@@ -37,6 +39,7 @@ interface MobileRelationshipExplorerProps {
   onEditPerson: (personId: string) => void;
   onDeletePerson: (personId: string) => void;
   onAddRelative: (anchorId: string, presetRel: "CHILD" | "SPOUSE" | "PARENT" | "SIBLING" | "NONE") => void;
+  onCopyAddLink?: (anchorId: string, presetRel?: "CHILD" | "SPOUSE" | "PARENT" | "SIBLING" | "NONE") => void;
   onClaimIdentity: (personId: string) => void;
   onSwitchToMap: (focusPersonId?: string) => void;
 }
@@ -54,12 +57,14 @@ export function MobileRelationshipExplorer({
   onEditPerson,
   onDeletePerson,
   onAddRelative,
+  onCopyAddLink,
   onClaimIdentity,
   onSwitchToMap,
 }: MobileRelationshipExplorerProps) {
   const [viewTab, setViewTab] = useState<"FOCUS" | "GENERATIONS">("FOCUS");
   const [expandedGen, setExpandedGen] = useState<number | null>(null);
   const [comparePersonId, setComparePersonId] = useState<string>("");
+  const [copiedHeroLink, setCopiedHeroLink] = useState(false);
 
   // Build adjacency maps and generation depth map
   const {
@@ -927,26 +932,59 @@ export function MobileRelationshipExplorer({
                     <span>{language === "km" ? "កែប្រែ" : "Edit"}</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    linkedPersonId === activePerson.id
-                      ? onOpenProfileDrawer(activePerson.id)
-                      : onClaimIdentity(activePerson.id)
-                  }
-                  className="py-2 px-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-white/20 active:scale-95 cursor-pointer leading-relaxed"
-                >
-                  <User className="w-3.5 h-3.5 text-sky-200 shrink-0" />
-                  <span>
-                    {linkedPersonId === activePerson.id
-                      ? language === "km"
-                        ? "លម្អិត"
-                        : "Details"
-                      : language === "km"
-                      ? "ជាខ្លួនខ្ញុំ"
-                      : "This is Me"}
-                  </span>
-                </button>
+                {onCopyAddLink ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCopyAddLink(activePerson.id, "CHILD");
+                      setCopiedHeroLink(true);
+                      setTimeout(() => setCopiedHeroLink(false), 2500);
+                    }}
+                    className={`py-2 px-2 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1 border active:scale-95 cursor-pointer leading-relaxed transition-all ${
+                      copiedHeroLink
+                        ? "bg-emerald-500 text-white border-emerald-300"
+                        : "bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 border-amber-300/40"
+                    }`}
+                    title={
+                      language === "km"
+                        ? "ចម្លងលីងសម្រាប់បន្ថែមសមាជិកគ្រួសារ"
+                        : "Copy link to add as member"
+                    }
+                  >
+                    {copiedHeroLink ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span>{language === "km" ? "បានចម្លងលីង" : "Copied!"}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                        <span>{language === "km" ? "ចម្លងលីងបន្ថែមសមាជិក" : "Copy Add Link"}</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      linkedPersonId === activePerson.id
+                        ? onOpenProfileDrawer(activePerson.id)
+                        : onClaimIdentity(activePerson.id)
+                    }
+                    className="py-2 px-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-white/20 active:scale-95 cursor-pointer leading-relaxed"
+                  >
+                    <User className="w-3.5 h-3.5 text-sky-200 shrink-0" />
+                    <span>
+                      {linkedPersonId === activePerson.id
+                        ? language === "km"
+                          ? "លម្អិត"
+                          : "Details"
+                        : language === "km"
+                        ? "ជាខ្លួនខ្ញុំ"
+                        : "This is Me"}
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
 

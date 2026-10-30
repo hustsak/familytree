@@ -61,6 +61,8 @@ import {
   Sun,
   Moon,
   ChevronLeft,
+  Copy,
+  Link2,
 } from "lucide-react";
 
 interface PersonDetail extends TreePerson {
@@ -111,6 +113,17 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
   }, [reactFlowInstance]);
   const searchParams = useSearchParams();
   const focusParamId = searchParams.get("focusPersonId");
+  const addMemberParam = searchParams.get("addMember");
+  const anchorParamId = searchParams.get("anchorId");
+  const relTypeParam = searchParams.get("relType") as
+    | "CHILD"
+    | "SPOUSE"
+    | "PARENT"
+    | "SIBLING"
+    | "NONE"
+    | null;
+  const hasOpenedAddFromUrlRef = useRef(false);
+  const [copiedAddLink, setCopiedAddLink] = useState(false);
   const { x: vpX, y: vpY, zoom: vpZoom } = useViewport();
   const [generationYMap, setGenerationYMap] = useState<Record<number, number>>({});
 
@@ -1396,6 +1409,77 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
     setShowAddModal(true);
   };
 
+  // Copy Shareable Link for Adding a Family Member (pre-filled with anchor relative & relationship type)
+  const handleCopyAddMemberLink = useCallback(
+    async (
+      targetAnchorId?: string,
+      targetRelType: "CHILD" | "SPOUSE" | "PARENT" | "SIBLING" | "NONE" = "CHILD"
+    ) => {
+      if (typeof window === "undefined") return;
+      const anchor =
+        targetAnchorId ||
+        addAnchorId ||
+        selectedPersonId ||
+        activeProfile?.id ||
+        linkedPersonId ||
+        people[0]?.id ||
+        "";
+      const rel = targetRelType || addRelType || "CHILD";
+      const params = new URLSearchParams();
+      params.set("addMember", "1");
+      if (anchor) params.set("anchorId", anchor);
+      if (rel) params.set("relType", rel);
+
+      const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+
+      setCopiedAddLink(true);
+      setTimeout(() => setCopiedAddLink(false), 2500);
+
+      const anchorPerson = people.find((p) => p.id === anchor);
+      const anchorName = anchorPerson
+        ? anchorPerson.khmerName || `${anchorPerson.lastName} ${anchorPerson.firstName}`.trim()
+        : "";
+
+      setNotification({
+        type: "success",
+        message:
+          language === "km"
+            ? `បានចម្លងលីងសម្រាប់បន្ថែមសមាជិក${anchorName ? ` (ភ្ជាប់ជាមួយ ${anchorName})` : ""} រួចរាល់! សូមផ្ញើទៅសាច់ញាតិ។`
+            : `Copied link to add family member${anchorName ? ` (linked to ${anchorName})` : ""}!`,
+      });
+    },
+    [addAnchorId, addRelType, selectedPersonId, activeProfile, linkedPersonId, people, language]
+  );
+
+  // Auto-open Add Family Member modal when visiting a shared ?addMember=1 link
+  useEffect(() => {
+    if (addMemberParam === "1" && !loading && people.length > 0 && !hasOpenedAddFromUrlRef.current) {
+      hasOpenedAddFromUrlRef.current = true;
+      const validRel =
+        relTypeParam && ["CHILD", "SPOUSE", "PARENT", "SIBLING", "NONE"].includes(relTypeParam)
+          ? relTypeParam
+          : "CHILD";
+      const validAnchor =
+        anchorParamId && people.some((p) => p.id === anchorParamId)
+          ? anchorParamId
+          : people[0]?.id;
+      if (validAnchor) {
+        setSelectedPersonId(validAnchor);
+      }
+      handleOpenAddModal(validAnchor, validRel);
+    }
+  }, [addMemberParam, anchorParamId, relTypeParam, loading, people]);
+
   // Kinship Calculation
   const handleCalculateKinship = async () => {
     if (!kinshipP1 || !kinshipP2) return;
@@ -2168,18 +2252,45 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
             </button>
           </div>
 
-          {/* Desktop "Add member" Button: on mobile accessed through floating bottom dock */}
+          {/* Desktop "Add member" & "Copy Add Link" Buttons: on mobile accessed through floating bottom dock / modal */}
           {canAddRelative && (
-            <button
-              id="btn-floating-add-member"
-              type="button"
-              onClick={() => handleOpenAddModal()}
-              className="hidden sm:flex px-4 py-1.5 rounded-full bg-gradient-to-r from-[#4a95ee] to-[#2467cc] hover:from-[#3b87e3] hover:to-[#1c57b8] text-white font-semibold text-xs items-center gap-1 shadow-md shadow-[#2f7de1]/25 hover:shadow-lg hover:shadow-[#2f7de1]/35 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer font-khmer shrink-0"
-              title="បន្ថែមសមាជិកគ្រួសារថ្មី (Add family member)"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{language === "km" ? "បន្ថែមសមាជិក" : "Add Member"}</span>
-            </button>
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+              <button
+                id="btn-floating-add-member"
+                type="button"
+                onClick={() => handleOpenAddModal()}
+                className="px-4 py-1.5 rounded-full bg-gradient-to-r from-[#4a95ee] to-[#2467cc] hover:from-[#3b87e3] hover:to-[#1c57b8] text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-[#2f7de1]/25 hover:shadow-lg hover:shadow-[#2f7de1]/35 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer font-khmer"
+                title="បន្ថែមសមាជិកគ្រួសារថ្មី (Add family member)"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{language === "km" ? "បន្ថែមសមាជិក" : "Add Member"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handleCopyAddMemberLink(
+                    selectedPersonId || linkedPersonId || people[0]?.id || "",
+                    "CHILD"
+                  )
+                }
+                className="px-3 py-1.5 rounded-full bg-white hover:bg-[#f0f6ff] text-[#1e3a8a] border border-[#cbdcf0] font-bold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer font-khmer"
+                title="ចម្លងលីងសម្រាប់ផ្ញើឱ្យសាច់ញាតិបន្ថែមសមាជិក (Copy link to add member)"
+              >
+                {copiedAddLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">
+                      {language === "km" ? "បានចម្លងលីង" : "Copied"}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-3.5 h-3.5 text-[#2f7de1]" />
+                    <span>{language === "km" ? "ចម្លងលីង" : "Copy Link"}</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
 
@@ -2314,6 +2425,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                   onEditPerson={(id) => handleEditPersonDirectly(id)}
                   onDeletePerson={(id) => handleDeletePersonDirectly(id)}
                   onAddRelative={(anchorId, relType) => handleOpenAddModal(anchorId, relType)}
+                  onCopyAddLink={(anchorId, relType) => handleCopyAddMemberLink(anchorId, relType)}
                   onClaimIdentity={(id) => handleClaimIdentity(id)}
                   onSwitchToMap={(focusId) => {
                     setMobileViewMode("MAP");
@@ -3752,21 +3864,45 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
 
                 {/* Row 4: Relationship Section in 2 Columns to Save Space */}
                 <div className="p-3 rounded-2xl bg-[#f0f6ff] border border-[#bfd8f5] space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[11px] font-extrabold text-[#1e3a8a] flex items-center gap-1.5 leading-relaxed">
                       <GitBranch className="w-3.5 h-3.5 text-[#2f7de1]" />
                       <span>ទំនាក់ទំនងសាច់ញាតិក្នុងដើមឈើ</span>
                     </span>
-                    {selectedAnchorPerson && addRelType !== "NONE" && (
-                      <span className="px-2 py-0.5 rounded-full bg-white text-[#2f7de1] border border-[#cbdcf0] text-[10px] font-bold leading-relaxed">
-                        {addRelType === "CHILD" && "កូន"}
-                        {addRelType === "PARENT" && "ឪពុក/ម្តាយ"}
-                        {addRelType === "SPOUSE" && "ប្តី/ប្រពន្ធ"}
-                        {addRelType === "SIBLING" && "បងប្អូន"} របស់{" "}
-                        {selectedAnchorPerson.khmerName ||
-                          `${selectedAnchorPerson.lastName} ${selectedAnchorPerson.firstName}`.trim()}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {selectedAnchorPerson && addRelType !== "NONE" && (
+                        <span className="px-2 py-0.5 rounded-full bg-white text-[#2f7de1] border border-[#cbdcf0] text-[10px] font-bold leading-relaxed">
+                          {addRelType === "CHILD" && "កូន"}
+                          {addRelType === "PARENT" && "ឪពុក/ម្តាយ"}
+                          {addRelType === "SPOUSE" && "ប្តី/ប្រពន្ធ"}
+                          {addRelType === "SIBLING" && "បងប្អូន"} របស់{" "}
+                          {selectedAnchorPerson.khmerName ||
+                            `${selectedAnchorPerson.lastName} ${selectedAnchorPerson.firstName}`.trim()}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAddMemberLink(addAnchorId, addRelType)}
+                        className={`px-2.5 py-1 rounded-xl border text-[10.5px] font-bold flex items-center gap-1 transition-all cursor-pointer leading-relaxed ${
+                          copiedAddLink
+                            ? "bg-emerald-50 border-emerald-400 text-emerald-700"
+                            : "bg-white hover:bg-[#e6f0fd] border-[#9ec5f8] text-[#1d4ed8] shadow-2xs"
+                        }`}
+                        title="ចម្លងលីងសម្រាប់ផ្ញើឱ្យសាច់ញាតិបំពេញបន្ថែមសមាជិកនេះ (Copy link to add member)"
+                      >
+                        {copiedAddLink ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>បានចម្លងលីង!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 text-[#2f7de1] shrink-0" />
+                            <span>ចម្លងលីងបន្ថែមសមាជិក</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {people.length === 0 ? (
