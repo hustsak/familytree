@@ -3534,24 +3534,26 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
         )}
       </div>
 
-      {/* Add Family Member Modal */}
+      {/* Add Family Member Modal — Clean, Easy-to-Use 2-Column Compact UI */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="tree-modal-light max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] sm:max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border-t sm:border border-slate-200 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto font-khmer">
+          <div className="bg-white text-[#1c2e48] max-w-lg w-full p-4 sm:p-5 space-y-3 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border-t sm:border border-[#dbe7f5] shadow-2xl">
             {/* Mobile Drag Handle */}
-            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2 text-white">
-                <div className="w-7 h-7 rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#d4af37] flex items-center justify-center">
+            <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-1 sm:hidden shrink-0" />
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#e2edf8]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2f7de1] to-[#1c57b8] text-white flex items-center justify-center shadow-xs shrink-0">
                   <Plus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold font-heritage">
+                  <h3 className="text-sm sm:text-base font-extrabold text-[#1c2e48] leading-relaxed">
                     បន្ថែមសមាជិកគ្រួសារ
                   </h3>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-[#6a7f99] block leading-relaxed">
                     {addStep === "FORM"
-                      ? "បញ្ចូលព័ត៌មានលម្អិត និងជ្រើសរើសទំនាក់ទំនង"
+                      ? "បំពេញឈ្មោះ និងជ្រើសរើសទំនាក់ទំនងគ្រួសារ"
                       : "ពិនិត្យឡើងវិញ និងបញ្ជាក់ការបង្កើត"}
                   </span>
                 </div>
@@ -3559,15 +3561,15 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4.5 h-4.5" />
               </button>
             </div>
 
             {addError && (
-              <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-800 text-rose-200 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2 leading-relaxed">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <span>{addError}</span>
               </div>
             )}
@@ -3587,24 +3589,13 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                   setAddError(null);
                   setAddStep("CONFIRM");
                 }}
-                className="space-y-3 text-xs"
+                className="space-y-2.5 text-xs"
               >
-                {/* Draft Auto-Saved Indicator */}
-                <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>ទម្រង់ត្រូវបានកត់ត្រាទុកស្វ័យប្រវត្តិ</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 italic">
-                    មិនបាត់បង់ទិន្នន័យពេលបិទ
-                  </span>
-                </div>
-
-                {/* Real Name Inputs: Last Name (កុយ) & First Name (វិរៈស័ក្ក) */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Row 1 (2 Columns): Last Name & First Name */}
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
-                      នាមត្រកូល (Last Name) *
+                    <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
+                      នាមត្រកូល (Last Name) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -3616,13 +3607,13 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                         updateAddRelativeDraft({ lastName: val });
                       }}
                       placeholder="ឧ. កុយ"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                      className="w-full px-3 py-2 bg-[#f8fbff] border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#2f7de1] focus:bg-white leading-relaxed"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
-                      នាមខ្លួន (First Name) *
+                    <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
+                      នាមខ្លួន (First Name) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -3634,57 +3625,16 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                         updateAddRelativeDraft({ firstName: val });
                       }}
                       placeholder="ឧ. វិរៈស័ក្ក"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                      className="w-full px-3 py-2 bg-[#f8fbff] border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#2f7de1] focus:bg-white leading-relaxed"
                     />
                   </div>
                 </div>
 
-                {/* Life Status (នៅរស់ / ស្លាប់) */}
-                <div>
-                  <label className="block text-[11px] text-slate-300 font-semibold mb-1.5">
-                    ស្ថានភាពជីវិត *
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddIsLiving(true);
-                        setAddDeathYear("");
-                        updateAddRelativeDraft({ isLiving: true, deathYear: "" });
-                      }}
-                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
-                        addIsLiving
-                          ? "bg-emerald-600/20 border-emerald-500 text-emerald-300 shadow-sm"
-                          : "bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-600"
-                      }`}
-                    >
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                      <span>នៅរស់</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddIsLiving(false);
-                        updateAddRelativeDraft({ isLiving: false });
-                      }}
-                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
-                        !addIsLiving
-                          ? "bg-slate-700/60 border-slate-400 text-slate-100 shadow-sm"
-                          : "bg-slate-900 border-slate-700 text-slate-400 hover:text-white hover:border-slate-600"
-                      }`}
-                    >
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                      <span>ស្លាប់ (ទទួលមរណភាព)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Gender & Years */}
-                <div className={`grid ${!addIsLiving ? "grid-cols-3" : "grid-cols-2"} gap-3`}>
+                {/* Row 2 (2 Columns): Gender & Life Status */}
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
-                      ភេទ
+                    <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
+                      ភេទ (Gender)
                     </label>
                     <select
                       value={addGender}
@@ -3693,18 +3643,60 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                         setAddGender(val);
                         updateAddRelativeDraft({ gender: val });
                       }}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                      className="w-full px-3 py-2 bg-[#f8fbff] border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-semibold focus:outline-none focus:border-[#2f7de1] focus:bg-white cursor-pointer leading-relaxed"
                     >
                       <option value="UNKNOWN">មិនបញ្ជាក់</option>
-                      <option value="MALE">ប្រុស</option>
-                      <option value="FEMALE">ស្រី</option>
-                      <option value="OTHER">ផ្សេងទៀត</option>
+                      <option value="MALE">ប្រុស (Male)</option>
+                      <option value="FEMALE">ស្រី (Female)</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
-                      ឆ្នាំកំណើត
+                    <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
+                      ស្ថានភាពជីវិត <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddIsLiving(true);
+                          setAddDeathYear("");
+                          updateAddRelativeDraft({ isLiving: true, deathYear: "" });
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer leading-relaxed ${
+                          addIsLiving
+                            ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
+                            : "bg-[#f8fbff] border-[#cbdcf0] text-slate-500 hover:text-[#1c2e48]"
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span>នៅរស់</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddIsLiving(false);
+                          updateAddRelativeDraft({ isLiving: false });
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer leading-relaxed ${
+                          !addIsLiving
+                            ? "bg-slate-200 border-slate-500 text-slate-900 shadow-2xs"
+                            : "bg-[#f8fbff] border-[#cbdcf0] text-slate-500 hover:text-[#1c2e48]"
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-slate-500 shrink-0" />
+                        <span>ស្លាប់</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3 (2 Columns): Birth Year & Death Year / Short Note */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
+                      ឆ្នាំកំណើត (ស្រេចចិត្ត)
                     </label>
                     <input
                       type="text"
@@ -3718,13 +3710,13 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                         updateAddRelativeDraft({ birthYear: cleaned });
                       }}
                       placeholder="ឧ. 1970"
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                      className="w-full px-3 py-2 bg-[#f8fbff] border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#2f7de1] focus:bg-white leading-relaxed"
                     />
                   </div>
 
-                  {!addIsLiving && (
+                  {!addIsLiving ? (
                     <div>
-                      <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
                         ឆ្នាំទទួលមរណភាព
                       </label>
                       <input
@@ -3739,94 +3731,106 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                           updateAddRelativeDraft({ deathYear: cleaned });
                         }}
                         placeholder="ឧ. 2020"
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
+                        className="w-full px-3 py-2 bg-[#f8fbff] border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#2f7de1] focus:bg-white leading-relaxed"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[11px] text-[#1c2e48] font-bold mb-1 leading-relaxed">
+                        កំណត់ចំណាំខ្លី (ស្រេចចិត្ត)
+                      </label>
+                      <input
+                        type="text"
+                        value={addBio}
+                        onChange={(e) => setAddBio(e.target.value)}
+                        placeholder="កំណត់ចំណាំបន្ថែម..."
+                        className="w-full px-3 py-2 bg-[#f8fbff] border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] placeholder:text-slate-400 focus:outline-none focus:border-[#2f7de1] focus:bg-white leading-relaxed"
                       />
                     </div>
                   )}
                 </div>
 
-                {/* Relationship section */}
-                <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
-                  <span className="text-[11px] font-bold text-[#d4af37] block uppercase tracking-wider">
-                    ទំនាក់ទំនងសាច់ញាតិក្នុងដើមឈើ
-                  </span>
+                {/* Row 4: Relationship Section in 2 Columns to Save Space */}
+                <div className="p-3 rounded-2xl bg-[#f0f6ff] border border-[#bfd8f5] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-[#1e3a8a] flex items-center gap-1.5 leading-relaxed">
+                      <GitBranch className="w-3.5 h-3.5 text-[#2f7de1]" />
+                      <span>ទំនាក់ទំនងសាច់ញាតិក្នុងដើមឈើ</span>
+                    </span>
+                    {selectedAnchorPerson && addRelType !== "NONE" && (
+                      <span className="px-2 py-0.5 rounded-full bg-white text-[#2f7de1] border border-[#cbdcf0] text-[10px] font-bold leading-relaxed">
+                        {addRelType === "CHILD" && "កូន"}
+                        {addRelType === "PARENT" && "ឪពុក/ម្តាយ"}
+                        {addRelType === "SPOUSE" && "ប្តី/ប្រពន្ធ"}
+                        {addRelType === "SIBLING" && "បងប្អូន"} របស់{" "}
+                        {selectedAnchorPerson.khmerName ||
+                          `${selectedAnchorPerson.lastName} ${selectedAnchorPerson.firstName}`.trim()}
+                      </span>
+                    )}
+                  </div>
 
                   {people.length === 0 ? (
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] text-[#5b718a] leading-relaxed">
                       ដើមឈើគ្រួសារបច្ចុប្បន្ននៅទទេរ។ បុគ្គលនេះនឹងក្លាយជាមេគ្រួសារ ឬបុព្វបុរសដំបូង។
                     </div>
                   ) : (
                     <>
-                      <div>
-                        <label className="block text-[11px] text-slate-300 mb-1">
-                          ប្រភេទទំនាក់ទំនង *
-                        </label>
-                        <select
-                          value={addRelType}
-                          onChange={(e) => setAddRelType(e.target.value as typeof addRelType)}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
-                        >
-                          <option value="CHILD">
-                            កូន របស់...
-                          </option>
-                          <option value="PARENT">
-                            ឪពុក ឬ ម្តាយ របស់...
-                          </option>
-                          <option value="SPOUSE">
-                            ស្វាមី ឬ ភរិយា របស់...
-                          </option>
-                          <option value="SIBLING">
-                            បងប្អូនបង្កើត របស់...
-                          </option>
-                          {isCouncil && (
-                            <option value="NONE">
-                              បុព្វបុរសដំបូង / មែកធាងថ្មី
-                            </option>
-                          )}
-                        </select>
-                      </div>
-
-                      {addRelType !== "NONE" && (
+                      {/* 2-Column Relationship Type + Anchor Relative */}
+                      <div className="grid grid-cols-2 gap-2.5">
                         <div>
-                          <label className="block text-[11px] text-slate-300 mb-1">
-                            សាច់ញាតិបង្គោលក្នុងដើមឈើ *
+                          <label className="block text-[10.5px] text-[#475569] font-bold mb-1 leading-relaxed">
+                            ប្រភេទទំនាក់ទំនង <span className="text-rose-500">*</span>
                           </label>
                           <select
-                            value={addAnchorId}
-                            onChange={(e) => setAddAnchorId(e.target.value)}
-                            disabled={!isCouncil && Boolean(linkedPersonId)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37] disabled:opacity-60"
+                            value={addRelType}
+                            onChange={(e) => setAddRelType(e.target.value as typeof addRelType)}
+                            className="w-full px-2.5 py-2 bg-white border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-bold focus:outline-none focus:border-[#2f7de1] cursor-pointer leading-relaxed"
                           >
-                            <option value="">
-                              -- ជ្រើសរើសសាច់ញាតិ --
-                            </option>
-                            {people.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.khmerName || `${p.lastName} ${p.firstName}`.trim()}
-                                {p.birthYear ? ` - b. ${p.birthYear}` : ""}
-                              </option>
-                            ))}
+                            <option value="CHILD">កូន របស់...</option>
+                            <option value="SPOUSE">ប្តី / ប្រពន្ធ របស់...</option>
+                            <option value="PARENT">ឪពុក / ម្តាយ របស់...</option>
+                            <option value="SIBLING">បងប្អូនបង្កើត របស់...</option>
+                            {isCouncil && (
+                              <option value="NONE">បុព្វបុរសដំបូង / មែកធាងថ្មី</option>
+                            )}
                           </select>
-                          {!isCouncil && linkedPersonId && (
-                            <p className="text-[10px] text-slate-400 mt-1 italic">
-                              * សមាជិកទូទៅអាចបន្ថែមទំនាក់ទំនងភ្ជាប់ជាមួយប្រវត្តិរូបផ្ទាល់ខ្លួនប៉ុណ្ណោះ
-                            </p>
-                          )}
                         </div>
-                      )}
+
+                        {addRelType !== "NONE" && (
+                          <div>
+                            <label className="block text-[10.5px] text-[#475569] font-bold mb-1 leading-relaxed">
+                              សាច់ញាតិបង្គោល <span className="text-rose-500">*</span>
+                            </label>
+                            <select
+                              value={addAnchorId}
+                              onChange={(e) => setAddAnchorId(e.target.value)}
+                              disabled={!isCouncil && Boolean(linkedPersonId)}
+                              className="w-full px-2.5 py-2 bg-white border border-[#cbdcf0] rounded-xl text-xs text-[#1c2e48] font-bold focus:outline-none focus:border-[#2f7de1] disabled:opacity-60 cursor-pointer leading-relaxed"
+                            >
+                              <option value="">-- ជ្រើសរើសសាច់ញាតិ --</option>
+                              {people.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.khmerName || `${p.lastName} ${p.firstName}`.trim()}
+                                  {p.birthYear ? ` (${p.birthYear})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
 
                       {addRelType === "CHILD" && (
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="flex items-center gap-2 pt-0.5">
                           <input
                             type="checkbox"
                             id="alsoLinkSpouseCheck"
                             checked={addAlsoLinkSpouse}
                             onChange={(e) => setAddAlsoLinkSpouse(e.target.checked)}
-                            className="w-4 h-4 rounded text-[#d4af37] bg-slate-950 border-slate-700"
+                            className="w-4 h-4 rounded text-[#2f7de1] border-[#cbdcf0] cursor-pointer"
                           />
                           <label
                             htmlFor="alsoLinkSpouseCheck"
-                            className="text-[11px] text-slate-300 cursor-pointer"
+                            className="text-[11px] text-[#1c2e48] font-medium cursor-pointer leading-relaxed"
                           >
                             ភ្ជាប់ជាកូនរបស់ស្វាមី/ភរិយារបស់គាត់ផងដែរ (ប្រសិនបើមាន)
                           </label>
@@ -3836,109 +3840,78 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                   )}
                 </div>
 
-                {/* Notes & Bio */}
-                <div>
-                  <label className="block text-[11px] text-slate-300 font-semibold mb-1">
-                    កំណត់ចំណាំ ឬរឿងរ៉ាវ (ស្រេចចិត្ត)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={addBio}
-                    onChange={(e) => setAddBio(e.target.value)}
-                    placeholder="កំណត់ចំណាំបន្ថែម..."
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-[#d4af37]"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 rounded-lg text-slate-400 hover:text-white"
-                  >
-                    បោះបង់
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-lg bg-[#d4af37] text-slate-950 font-semibold hover:bg-[#e5c158] transition-all cursor-pointer"
-                  >
-                    ពិនិត្យ និងបញ្ជាក់
-                  </button>
+                {/* Footer Actions */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#e2edf8]">
+                  <span className="text-[10.5px] text-emerald-600 font-semibold flex items-center gap-1 leading-relaxed">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>រក្សាទុកព្រាងស្វ័យប្រវត្តិ</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold cursor-pointer leading-relaxed"
+                    >
+                      បោះបង់
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#2f7de1] to-[#1c57b8] hover:from-[#256ac2] hover:to-[#164899] text-white font-bold shadow-md shadow-[#2f7de1]/20 transition-all cursor-pointer leading-relaxed"
+                    >
+                      ពិនិត្យ និងបញ្ជាក់
+                    </button>
+                  </div>
                 </div>
               </form>
             ) : (
               /* Confirmation Screen before saving */
-              <div className="space-y-4 text-xs">
-                <div className="p-4 rounded-xl bg-slate-900 border border-[#d4af37]/40 space-y-3">
-                  <div className="flex items-center gap-2 text-[#d4af37] font-semibold text-xs">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>
-                      សូមបញ្ជាក់ការបង្កើតសមាជិក និងខ្សែស្រឡាយ
-                    </span>
+              <div className="space-y-3.5 text-xs">
+                <div className="p-3.5 rounded-2xl bg-[#f8fbff] border border-[#cbdcf0] space-y-2.5">
+                  <div className="flex items-center gap-2 text-[#1e3a8a] font-bold text-xs leading-relaxed">
+                    <CheckCircle2 className="w-4 h-4 text-[#2f7de1]" />
+                    <span>សូមបញ្ជាក់ការបង្កើតសមាជិក និងខ្សែស្រឡាយ</span>
                   </div>
 
-                  <div className="space-y-2 text-slate-300 text-xs">
-                    <div className="p-2.5 rounded-lg bg-slate-950 flex justify-between">
-                      <span className="text-slate-400">ឈ្មោះសមាជិកថ្មី៖</span>
-                      <span className="font-bold text-white">
-                        {addLastName} {addFirstName} {addKhmerName ? `(${addKhmerName})` : ""}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-white border border-[#e2edf8]">
+                      <span className="text-[10.5px] text-[#6a7f99] block leading-relaxed">ឈ្មោះសមាជិកថ្មី</span>
+                      <span className="font-extrabold text-[#1c2e48] text-sm leading-relaxed">
+                        {addLastName} {addFirstName}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg bg-slate-950 flex justify-between">
-                      <span className="text-slate-400">ស្ថានភាពជីវិត៖</span>
-                      <span className={`font-semibold ${addIsLiving ? "text-emerald-400" : "text-slate-400"}`}>
-                        {addIsLiving ? "នៅរស់" : "ស្លាប់ (ទទួលមរណភាព)"}
+                    <div className="p-2.5 rounded-xl bg-white border border-[#e2edf8]">
+                      <span className="text-[10.5px] text-[#6a7f99] block leading-relaxed">ស្ថានភាព / ឆ្នាំកំណើត</span>
+                      <span className={`font-bold leading-relaxed ${addIsLiving ? "text-emerald-700" : "text-slate-700"}`}>
+                        {addIsLiving ? "នៅរស់" : "ស្លាប់"}
+                        {addBirthYear ? ` • ${addBirthYear}` : ""}
                       </span>
                     </div>
+                  </div>
 
-                    {addBirthYear && (
-                      <div className="p-2.5 rounded-lg bg-slate-950 flex justify-between">
-                        <span className="text-slate-400">ឆ្នាំកំណើត៖</span>
-                        <span className="font-semibold text-white">{addBirthYear}</span>
-                      </div>
-                    )}
-
-                    {!addIsLiving && addDeathYear && (
-                      <div className="p-2.5 rounded-lg bg-slate-950 flex justify-between">
-                        <span className="text-slate-400">ឆ្នាំទទួលមរណភាព៖</span>
-                        <span className="font-semibold text-white">{addDeathYear}</span>
-                      </div>
-                    )}
-
-                    {addRelType !== "NONE" && selectedAnchorPerson && (
-                      <div className="p-2.5 rounded-lg bg-slate-950 space-y-1">
-                        <span className="text-slate-400 block">ទំនាក់ទំនងដែលនឹងបង្កើត៖</span>
-                        <p className="font-semibold text-[#d4af37]">
-                          {addRelType === "CHILD" && "👉 ជា កូន របស់"}
-                          {addRelType === "PARENT" && "👉 ជា ឪពុក/ម្តាយ របស់"}
-                          {addRelType === "SPOUSE" && "👉 ជា ស្វាមី/ភរិយា របស់"}
-                          {addRelType === "SIBLING" && "👉 ជា បងប្អូនបង្កើត របស់"}{" "}
-                          <span className="text-white underline">
-                            {selectedAnchorPerson.khmerName ||
-                              `${selectedAnchorPerson.lastName} ${selectedAnchorPerson.firstName}`.trim()}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-
-                    {addRelType === "NONE" && (
-                      <div className="p-2.5 rounded-lg bg-slate-950">
-                        <span className="text-slate-400 block">ទំនាក់ទំនង៖</span>
-                        <span className="font-semibold text-amber-400">
-                          មេគ្រួសារដំបូង / មែកធាងឯករាជ្យ
+                  {addRelType !== "NONE" && selectedAnchorPerson && (
+                    <div className="p-2.5 rounded-xl bg-[#eef5ff] border border-[#bfd8f5]">
+                      <span className="text-[10.5px] text-[#5b718a] block leading-relaxed">ទំនាក់ទំនងដែលនឹងបង្កើត៖</span>
+                      <p className="font-bold text-[#1e3a8a] leading-relaxed mt-0.5">
+                        {addRelType === "CHILD" && "ជា កូន របស់ "}
+                        {addRelType === "PARENT" && "ជា ឪពុក/ម្តាយ របស់ "}
+                        {addRelType === "SPOUSE" && "ជា ស្វាមី/ភរិយា របស់ "}
+                        {addRelType === "SIBLING" && "ជា បងប្អូនបង្កើត របស់ "}
+                        <span className="text-[#2f7de1] underline">
+                          {selectedAnchorPerson.khmerName ||
+                            `${selectedAnchorPerson.lastName} ${selectedAnchorPerson.firstName}`.trim()}
                         </span>
-                      </div>
-                    )}
-                  </div>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <div className="flex items-center justify-end gap-2 pt-1">
                   <button
                     type="button"
                     disabled={submittingAdd}
                     onClick={() => setAddStep("FORM")}
-                    className="px-4 py-2 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold cursor-pointer leading-relaxed"
                   >
                     ត្រឡប់ក្រោយ
                   </button>
@@ -3946,11 +3919,11 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                     type="button"
                     disabled={submittingAdd}
                     onClick={handleConfirmAddMember}
-                    className="px-5 py-2 rounded-lg bg-[#d4af37] text-slate-950 font-semibold hover:bg-[#e5c158] transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#2f7de1] to-[#1c57b8] text-white font-bold shadow-md shadow-[#2f7de1]/20 transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer leading-relaxed"
                   >
                     {submittingAdd ? (
                       <>
-                        <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         <span>កំពុងបញ្ចូល...</span>
                       </>
                     ) : (
@@ -3970,7 +3943,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
       {/* Delete Relative Confirmation Modal */}
       {showDeleteModal && activeProfile && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="tree-modal-light max-w-md w-full p-5 sm:p-6 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 rounded-t-3xl sm:rounded-2xl border-t sm:border border-rose-300">
+          <div className="bg-slate-950 text-white max-w-md w-full p-5 sm:p-6 space-y-4 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 rounded-t-3xl sm:rounded-2xl border-t sm:border border-rose-500/40 shadow-2xl">
             {/* Mobile Drag Handle */}
             <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="flex items-start gap-3">
@@ -4064,7 +4037,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
       {/* Kinship Calculator Modal */}
       {showKinshipModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="tree-modal-light max-w-lg w-full p-5 sm:p-6 space-y-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 rounded-t-3xl sm:rounded-2xl border-t sm:border border-slate-200">
+          <div className="bg-slate-950 text-white max-w-lg w-full p-5 sm:p-6 space-y-5 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 rounded-t-3xl sm:rounded-2xl border-t sm:border border-slate-800 shadow-2xl">
             {/* Mobile Drag Handle */}
             <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-2 sm:hidden shrink-0" />
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
