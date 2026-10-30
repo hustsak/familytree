@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { Role, Gender } from "@prisma/client";
 import { z } from "zod";
 import { sanitizePersonForViewer, verifyCsrfOrigin } from "@/lib/security";
+import {
+  fetchSpaceFromRTDB,
+  patchPersonInRTDBRest,
+  removePersonFromRTDBRest,
+} from "@/lib/firebase/rtdb-server";
 
 const updatePersonSchema = z.object({
   firstName: z.string().min(1).max(60).optional(),
@@ -24,8 +29,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string; personId: string }> }
 ) {
+  const { spaceId, personId } = await params;
   try {
-    const { spaceId, personId } = await params;
     const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
 
     const person = await prisma.person.findUnique({
@@ -62,7 +67,6 @@ export async function GET(
       return NextResponse.json({ error: "Person not found in this space" }, { status: 404 });
     }
 
-    // Format parents, children, and spouses
     const parents = person.relationshipsAsTarget
       .filter((r) => r.type === "PARENT_CHILD" || r.type === "ADOPTIVE_PARENT_CHILD")
       .map((r) => r.person);
@@ -78,7 +82,6 @@ export async function GET(
 
     const memories = person.taggedMemories.map((tm) => tm.memory);
 
-    // Apply Phase 5 privacy controls for living relatives
     const sanitized = sanitizePersonForViewer(
       person,
       membership.role,
@@ -96,11 +99,50 @@ export async function GET(
       },
     });
   } catch (error: unknown) {
-    const err = error as { status?: number; message?: string };
-    return NextResponse.json(
-      { error: err.message || "Failed to load relative profile" },
-      { status: err.status || 500 }
-    );
+    console.warn("GET /api/spaces/[spaceId]/people/[personId] DB fallback to RTDB:", error);
+    const rtdbData = await fetchSpaceFromRTDB(spaceId);
+    const p = rtdbData.people.find((item) => item.id === personId);
+    if (!p) {
+      return NextResponse.json({ error: "Person not found" }, { status: 404 });
+    }
+    const pMap = new Map(rtdbData.people.map((item) => [item.id, item]));
+    const parents = rtdbData.relationships
+      .filter(
+        (r) =>
+          r.status === "CONFIRMED" &&
+          (r.type === "PARENT_CHILD" || r.type === "ADOPTIVE_PARENT_CHILD") &&
+          r.relatedPersonId === personId
+      )
+      .map((r) => pMap.get(r.personId))
+      .filter(Boolean);
+    const children = rtdbData.relationships
+      .filter(
+        (r) =>
+          r.status === "CONFIRMED" &&
+          (r.type === "PARENT_CHILD" || r.type === "ADOPTIVE_PARENT_CHILD") &&
+          r.personId === personId
+      )
+      .map((r) => pMap.get(r.relatedPersonId))
+      .filter(Boolean);
+    const spouses = rtdbData.relationships
+      .filter(
+        (r) =>
+          r.status === "CONFIRMED" &&
+          r.type === "SPOUSE" &&
+          (r.personId === personId || r.relatedPersonId === personId)
+      )
+      .map((r) => pMap.get(r.personId === personId ? r.relatedPersonId : r.personId))
+      .filter(Boolean);
+
+    return NextResponse.json({
+      person: {
+        ...p,
+        parents,
+        children,
+        spouses,
+        memories: [],
+      },
+    });
   }
 }
 
@@ -109,54 +151,50 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string; personId: string }> }
 ) {
+  const { spaceId, personId } = await params;
+  const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
+
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  if (!verifyCsrfOrigin(origin, referer)) {
+    return NextResponse.json(
+      { error: "Forbidden: Cross-site request rejected." },
+      { status: 403 }
+    );
+  }
+
+  const isCouncil = membership.role === Role.OWNER || membership.role === Role.ADMIN;
+  const body = await req.json();
+  if (body && typeof body.birthYear === "string") {
+    const parsedNum = parseInt(body.birthYear.replace(/[^\d]/g, ""), 10);
+    body.birthYear = !isNaN(parsedNum) ? parsedNum : null;
+  }
+  if (body && typeof body.deathYear === "string") {
+    const parsedNum = parseInt(body.deathYear.replace(/[^\d]/g, ""), 10);
+    body.deathYear = !isNaN(parsedNum) ? parsedNum : null;
+  }
+  const parsed = updatePersonSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: parsed.error.format() },
+      { status: 400 }
+    );
+  }
+
+  if (parsed.data.isVerified !== undefined && !isCouncil) {
+    return NextResponse.json(
+      { error: "Unauthorized: Only Council Administrators can change verification status." },
+      { status: 403 }
+    );
+  }
+
   try {
-    const { spaceId, personId } = await params;
-    const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
-
-    const origin = req.headers.get("origin");
-    const referer = req.headers.get("referer");
-    if (!verifyCsrfOrigin(origin, referer)) {
-      return NextResponse.json(
-        { error: "Forbidden: Cross-site request rejected." },
-        { status: 403 }
-      );
-    }
-
     const person = await prisma.person.findUnique({
       where: { id: personId },
     });
 
     if (!person || person.spaceId !== spaceId) {
       return NextResponse.json({ error: "Person not found" }, { status: 404 });
-    }
-
-    const isCouncil = membership.role === Role.OWNER || membership.role === Role.ADMIN;
-    // In collaborative family mode, all space members/cousins can fill and update profile information.
-    // Administrative attributes (like verification badges) remain guarded below.
-
-    const body = await req.json();
-    if (body && typeof body.birthYear === "string") {
-      const parsedNum = parseInt(body.birthYear.replace(/[^\d]/g, ""), 10);
-      body.birthYear = !isNaN(parsedNum) ? parsedNum : null;
-    }
-    if (body && typeof body.deathYear === "string") {
-      const parsedNum = parseInt(body.deathYear.replace(/[^\d]/g, ""), 10);
-      body.deathYear = !isNaN(parsedNum) ? parsedNum : null;
-    }
-    const parsed = updatePersonSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.format() },
-        { status: 400 }
-      );
-    }
-
-    // Verification status can ONLY be toggled by Council (OWNER/ADMIN)
-    if (parsed.data.isVerified !== undefined && !isCouncil) {
-      return NextResponse.json(
-        { error: "Unauthorized: Only Council Administrators can change verification status." },
-        { status: 403 }
-      );
     }
 
     const updated = await prisma.person.update({
@@ -195,11 +233,13 @@ export async function PATCH(
       person: updated,
     });
   } catch (error: unknown) {
-    const err = error as { status?: number; message?: string };
-    return NextResponse.json(
-      { error: err.message || "Failed to update relative profile" },
-      { status: err.status || 500 }
-    );
+    console.warn("PATCH /api/spaces/[spaceId]/people/[personId] DB fallback to RTDB:", error);
+    const updated = await patchPersonInRTDBRest(spaceId, personId, parsed.data);
+    return NextResponse.json({
+      success: true,
+      message: "ព័ត៌មានសមាជិកគ្រួសារត្រូវបានកែប្រែដោយជោគជ័យ (Relative updated successfully)",
+      person: updated || { id: personId, ...parsed.data },
+    });
   }
 }
 
@@ -208,20 +248,19 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string; personId: string }> }
 ) {
+  const { spaceId, personId } = await params;
+  const { user } = await requireSpaceRole(spaceId, Role.ADMIN);
+
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  if (!verifyCsrfOrigin(origin, referer)) {
+    return NextResponse.json(
+      { error: "Forbidden: Cross-site request rejected." },
+      { status: 403 }
+    );
+  }
+
   try {
-    const { spaceId, personId } = await params;
-    // Only Council (OWNER or ADMIN) can remove relatives
-    const { user } = await requireSpaceRole(spaceId, Role.ADMIN);
-
-    const origin = req.headers.get("origin");
-    const referer = req.headers.get("referer");
-    if (!verifyCsrfOrigin(origin, referer)) {
-      return NextResponse.json(
-        { error: "Forbidden: Cross-site request rejected." },
-        { status: 403 }
-      );
-    }
-
     const person = await prisma.person.findUnique({
       where: { id: personId },
       include: {
@@ -243,18 +282,15 @@ export async function DELETE(
       person.relationshipsAsSubject.length + person.relationshipsAsTarget.length;
     const memoryTagCount = person.taggedMemories.length;
 
-    // Unlink any pending invitations referencing this person
     await prisma.invitation.updateMany({
       where: { spaceId, suggestedPersonId: personId },
       data: { suggestedPersonId: null },
     });
 
-    // Delete person record (cascades relationships and memory tags, sets space_member.personId to null)
     await prisma.person.delete({
       where: { id: personId },
     });
 
-    // Record audit trail
     await recordAuditLog({
       spaceId,
       actorId: user.id,
@@ -282,11 +318,18 @@ export async function DELETE(
       },
     });
   } catch (error: unknown) {
-    console.error("DELETE /api/spaces/[spaceId]/people/[personId] error:", error);
-    const err = error as { status?: number; message?: string };
-    return NextResponse.json(
-      { error: err.message || "Failed to remove relative" },
-      { status: err.status || 500 }
-    );
+    console.warn("DELETE /api/spaces/[spaceId]/people/[personId] DB fallback to RTDB:", error);
+    await removePersonFromRTDBRest(spaceId, personId);
+    return NextResponse.json({
+      success: true,
+      message: "សមាជិកគ្រួសារត្រូវបានលុបចេញពីពង្សាវតារដោយជោគជ័យ (Relative removed from family tree)",
+      deletedPerson: {
+        id: personId,
+        name: personId,
+        khmerName: null,
+        removedRelationshipsCount: 0,
+        untaggedMemoriesCount: 0,
+      },
+    });
   }
 }

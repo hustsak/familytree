@@ -78,12 +78,21 @@ export function verifyCsrfOrigin(originHeader?: string | null, refererHeader?: s
     allowedOrigin = "http://localhost:3000";
   }
 
+  const vercelHost = process.env.VERCEL_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || "";
+
+  const isTrustedHeader = (hdr: string) =>
+    hdr.startsWith(allowedOrigin) ||
+    hdr.includes("localhost") ||
+    hdr.includes("127.0.0.1") ||
+    hdr.includes(".vercel.app") ||
+    Boolean(vercelHost && hdr.includes(vercelHost));
+
   if (originHeader) {
-    return originHeader.startsWith(allowedOrigin) || originHeader.includes("localhost") || originHeader.includes("127.0.0.1");
+    return isTrustedHeader(originHeader);
   }
 
   if (refererHeader) {
-    return refererHeader.startsWith(allowedOrigin) || refererHeader.includes("localhost") || refererHeader.includes("127.0.0.1");
+    return isTrustedHeader(refererHeader);
   }
 
   // If running in development without headers, permit

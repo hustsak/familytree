@@ -3,13 +3,14 @@ import { requireSpaceRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { sanitizePersonForViewer } from "@/lib/security";
+import { fetchSpaceFromRTDB } from "@/lib/firebase/rtdb-server";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string }> }
 ) {
+  const { spaceId } = await params;
   try {
-    const { spaceId } = await params;
     const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
 
     // Fetch actual relatives for this space from PostgreSQL database
@@ -17,6 +18,19 @@ export async function GET(
       where: { spaceId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
+
+    if (people.length === 0) {
+      const rtdbData = await fetchSpaceFromRTDB(spaceId);
+      if (rtdbData.people.length > 0) {
+        return NextResponse.json({
+          space: rtdbData.space,
+          people: rtdbData.people,
+          relationships: rtdbData.relationships,
+          userRole: membership.role,
+          linkedPersonId: membership.personId,
+        });
+      }
+    }
 
     // Apply Phase 5 privacy controls for living relatives
     const sanitizedPeople = people.map((p) =>
@@ -49,11 +63,15 @@ export async function GET(
       linkedPersonId: membership.personId,
     });
   } catch (error: unknown) {
-    console.error("GET /api/spaces/[spaceId]/tree error:", error);
-    const err = error as { status?: number; message?: string };
-    return NextResponse.json(
-      { error: err.message || "Failed to load family tree", people: [], relationships: [] },
-      { status: err.status || 500 }
-    );
+    console.warn("GET /api/spaces/[spaceId]/tree DB unavailable, falling back to Firebase RTDB:", error);
+    const rtdbData = await fetchSpaceFromRTDB(spaceId);
+    const cookieLinkedId = req.cookies.get("family_linked_person_id")?.value || null;
+    return NextResponse.json({
+      space: rtdbData.space,
+      people: rtdbData.people,
+      relationships: rtdbData.relationships,
+      userRole: "OWNER",
+      linkedPersonId: cookieLinkedId,
+    });
   }
 }

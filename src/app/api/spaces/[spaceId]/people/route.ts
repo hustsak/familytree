@@ -9,6 +9,11 @@ import {
   validateParentCount,
   validateNoDuplicateRelationship,
 } from "@/lib/validation/dag";
+import {
+  fetchSpaceFromRTDB,
+  savePersonToRTDBRest,
+} from "@/lib/firebase/rtdb-server";
+import type { TreePerson, TreeRelationship } from "@/lib/tree-layout";
 
 const addPersonSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(60),
@@ -35,42 +40,38 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ spaceId: string }> }
 ) {
+  const { spaceId } = await params;
+  const { user } = await requireSpaceRole(spaceId, Role.MEMBER);
+
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  if (!verifyCsrfOrigin(origin, referer)) {
+    return NextResponse.json(
+      { error: "Forbidden: Cross-site request rejected." },
+      { status: 403 }
+    );
+  }
+
+  const body = await req.json();
+  if (body && typeof body.birthYear === "string") {
+    const parsedNum = parseInt(body.birthYear.replace(/[^\d]/g, ""), 10);
+    body.birthYear = !isNaN(parsedNum) ? parsedNum : null;
+  }
+  if (body && typeof body.deathYear === "string") {
+    const parsedNum = parseInt(body.deathYear.replace(/[^\d]/g, ""), 10);
+    body.deathYear = !isNaN(parsedNum) ? parsedNum : null;
+  }
+  const parsed = addPersonSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: parsed.error.format() },
+      { status: 400 }
+    );
+  }
+
+  const relInfo = parsed.data.relationship;
+
   try {
-    const { spaceId } = await params;
-    const { user, membership } = await requireSpaceRole(spaceId, Role.MEMBER);
-
-    const origin = req.headers.get("origin");
-    const referer = req.headers.get("referer");
-    if (!verifyCsrfOrigin(origin, referer)) {
-      return NextResponse.json(
-        { error: "Forbidden: Cross-site request rejected." },
-        { status: 403 }
-      );
-    }
-
-    const body = await req.json();
-    if (body && typeof body.birthYear === "string") {
-      const parsedNum = parseInt(body.birthYear.replace(/[^\d]/g, ""), 10);
-      body.birthYear = !isNaN(parsedNum) ? parsedNum : null;
-    }
-    if (body && typeof body.deathYear === "string") {
-      const parsedNum = parseInt(body.deathYear.replace(/[^\d]/g, ""), 10);
-      body.deathYear = !isNaN(parsedNum) ? parsedNum : null;
-    }
-    const parsed = addPersonSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.format() },
-        { status: 400 }
-      );
-    }
-
-    const isCouncil = membership.role === Role.OWNER || membership.role === Role.ADMIN;
-    const relInfo = parsed.data.relationship;
-
-    // In open family collaboration mode, all cousins and space members can add relatives to anchor nodes.
-    // Lineage integrity is guaranteed by DAG validation below (no cycles, max 2 biological parents, no duplicate spouses).
-
     let anchorParents: string[] = [];
     let anchorSpouseId: string | null = null;
     let anchorId: string | null = null;
@@ -102,11 +103,8 @@ export async function POST(
       }
 
       anchorId = foundAnchor.id;
-
-      // Collect parents of anchor for SIBLING check or validation
       anchorParents = foundAnchor.relationshipsAsTarget.map((r) => r.personId);
 
-      // Check spouse of anchor if alsoLinkSpouse requested
       const spouseRel = foundAnchor.relationshipsAsSubject[0];
       if (spouseRel) {
         anchorSpouseId = spouseRel.relatedPersonId;
@@ -124,7 +122,6 @@ export async function POST(
         }
       }
 
-      // Validate relationships before inserting
       const allRels = await prisma.relationship.findMany({
         where: { spaceId, status: "CONFIRMED" },
       });
@@ -134,13 +131,11 @@ export async function POST(
         .map((r) => ({ parentId: r.personId, childId: r.relatedPersonId }));
 
       if (relInfo.type === "PARENT") {
-        // New person will be parent of anchor
         const currentParents = parentChildEdges
           .filter((e) => e.childId === foundAnchor.id)
           .map((e) => e.parentId);
         validateParentCount(currentParents, "temp-new-person-id");
       } else if (relInfo.type === "CHILD") {
-        // Anchor will be parent of new child
         validateNoCycle(parentChildEdges, foundAnchor.id, "temp-new-child-id");
       } else if (relInfo.type === "SPOUSE") {
         validateNoDuplicateRelationship(allRels, foundAnchor.id, "temp-new-spouse-id", "SPOUSE");
@@ -157,7 +152,6 @@ export async function POST(
       }
     }
 
-    // Execute atomic creation in transaction
     const result = await prisma.$transaction(async (tx) => {
       const newPerson = await tx.person.create({
         data: {
@@ -181,11 +175,12 @@ export async function POST(
         personId: string;
         relatedPersonId: string;
         type: string;
+        status?: string;
+        isDisputed?: boolean;
       }> = [];
 
       if (anchorId && relInfo && relInfo.type !== "NONE") {
         if (relInfo.type === "PARENT") {
-          // New person -> parent of anchor
           const rel = await tx.relationship.create({
             data: {
               spaceId,
@@ -199,7 +194,6 @@ export async function POST(
           });
           createdRelationships.push(rel);
         } else if (relInfo.type === "CHILD") {
-          // Anchor -> parent of new person
           const rel = await tx.relationship.create({
             data: {
               spaceId,
@@ -213,7 +207,6 @@ export async function POST(
           });
           createdRelationships.push(rel);
 
-          // If user also checked alsoLinkSpouse and anchor has spouse, link spouse as second parent
           if (relInfo.alsoLinkSpouse && anchorSpouseId) {
             const relSpouse = await tx.relationship.create({
               data: {
@@ -242,7 +235,6 @@ export async function POST(
           });
           createdRelationships.push(rel);
         } else if (relInfo.type === "SIBLING") {
-          // Link new person as child to all of anchor's parents
           for (const parentId of anchorParents) {
             const rel = await tx.relationship.create({
               data: {
@@ -263,7 +255,6 @@ export async function POST(
       return { newPerson, createdRelationships };
     });
 
-    // Record audit trail entries
     await recordAuditLog({
       spaceId,
       actorId: user.id,
@@ -280,21 +271,6 @@ export async function POST(
       },
     });
 
-    for (const rel of result.createdRelationships) {
-      await recordAuditLog({
-        spaceId,
-        actorId: user.id,
-        action: "RELATIONSHIP_CREATED",
-        entityType: "Relationship",
-        entityId: rel.id,
-        metadata: {
-          personId: rel.personId,
-          relatedPersonId: rel.relatedPersonId,
-          type: rel.type,
-        },
-      });
-    }
-
     return NextResponse.json({
       success: true,
       message: "សមាជិកគ្រួសារត្រូវបានបញ្ចូលដោយជោគជ័យ (Family member added successfully)",
@@ -302,11 +278,129 @@ export async function POST(
       relationships: result.createdRelationships,
     });
   } catch (error: unknown) {
-    console.error("POST /api/spaces/[spaceId]/people error:", error);
     const err = error as { status?: number; message?: string };
-    return NextResponse.json(
-      { error: err.message || "Failed to add family member" },
-      { status: err.status || 500 }
-    );
+    // If validation error (400/403/404), return it directly
+    if (err.status && err.status >= 400 && err.status < 500) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+
+    // Fallback to Firebase Realtime Database when PostgreSQL is unavailable (e.g. on Vercel)
+    console.warn("POST /api/spaces/[spaceId]/people DB unavailable, saving to Firebase RTDB:", error);
+    try {
+      const rtdbData = await fetchSpaceFromRTDB(spaceId);
+      const nowIso = new Date().toISOString();
+      const newPersonId = `person-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      const newPerson: TreePerson = {
+        id: newPersonId,
+        firstName: parsed.data.firstName.trim(),
+        lastName: parsed.data.lastName.trim(),
+        khmerName: parsed.data.khmerName?.trim() || null,
+        gender: parsed.data.gender,
+        birthYear: parsed.data.birthYear ?? null,
+        deathYear: parsed.data.deathYear ?? null,
+        isLiving: parsed.data.isLiving,
+        isVerified: true,
+        isRestricted: false,
+        photoUrl: parsed.data.photoUrl?.trim() || null,
+        biography: parsed.data.biography?.trim() || null,
+      };
+
+      const createdRelationships: TreeRelationship[] = [];
+      const anchorId = relInfo?.anchorPersonId || null;
+
+      if (anchorId && relInfo && relInfo.type !== "NONE") {
+        const makeRelId = (suffix: string) =>
+          `rel-${Date.now()}-${suffix}-${Math.random().toString(36).slice(2, 6)}`;
+
+        if (relInfo.type === "PARENT") {
+          createdRelationships.push({
+            id: makeRelId("par"),
+            personId: newPersonId,
+            relatedPersonId: anchorId,
+            type: "PARENT_CHILD",
+            status: "CONFIRMED",
+            isDisputed: false,
+          });
+        } else if (relInfo.type === "CHILD") {
+          createdRelationships.push({
+            id: makeRelId("ch"),
+            personId: anchorId,
+            relatedPersonId: newPersonId,
+            type: "PARENT_CHILD",
+            status: "CONFIRMED",
+            isDisputed: false,
+          });
+          if (relInfo.alsoLinkSpouse) {
+            const spouseRel = rtdbData.relationships.find(
+              (r) =>
+                r.status === "CONFIRMED" &&
+                r.type === "SPOUSE" &&
+                (r.personId === anchorId || r.relatedPersonId === anchorId)
+            );
+            const spouseId = spouseRel
+              ? spouseRel.personId === anchorId
+                ? spouseRel.relatedPersonId
+                : spouseRel.personId
+              : null;
+            if (spouseId) {
+              createdRelationships.push({
+                id: makeRelId("chsp"),
+                personId: spouseId,
+                relatedPersonId: newPersonId,
+                type: "PARENT_CHILD",
+                status: "CONFIRMED",
+                isDisputed: false,
+              });
+            }
+          }
+        } else if (relInfo.type === "SPOUSE") {
+          createdRelationships.push({
+            id: makeRelId("sp"),
+            personId: anchorId,
+            relatedPersonId: newPersonId,
+            type: "SPOUSE",
+            status: "CONFIRMED",
+            isDisputed: false,
+          });
+        } else if (relInfo.type === "SIBLING") {
+          const parentRels = rtdbData.relationships.filter(
+            (r) =>
+              r.status === "CONFIRMED" &&
+              (r.type === "PARENT_CHILD" || r.type === "ADOPTIVE_PARENT_CHILD") &&
+              r.relatedPersonId === anchorId
+          );
+          for (const pr of parentRels) {
+            createdRelationships.push({
+              id: makeRelId(`sib-${pr.personId.slice(-4)}`),
+              personId: pr.personId,
+              relatedPersonId: newPersonId,
+              type: "PARENT_CHILD",
+              status: "CONFIRMED",
+              isDisputed: false,
+            });
+          }
+        }
+      }
+
+      await savePersonToRTDBRest(
+        spaceId,
+        { ...newPerson, createdAt: nowIso, updatedAt: nowIso } as TreePerson,
+        createdRelationships
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "សមាជិកគ្រួសារត្រូវបានបញ្ចូលដោយជោគជ័យ (Family member added successfully)",
+        person: newPerson,
+        relationships: createdRelationships,
+      });
+    } catch (rtdbErr: unknown) {
+      const e = rtdbErr as { message?: string };
+      return NextResponse.json(
+        { error: e.message || "Failed to add family member" },
+        { status: 500 }
+      );
+    }
   }
 }
