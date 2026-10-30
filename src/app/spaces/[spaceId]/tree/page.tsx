@@ -2120,58 +2120,6 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
           )}
         </div>
 
-        {/* Quick Hierarchy Action Controls (Expand all, Collapse to Gen 3, Fit to screen) */}
-        <div
-          className={`absolute top-12 xs:top-14 sm:top-4 sm:left-[565px] z-30 ${
-            mobileViewMode === "CARDS" ? "hidden" : "flex"
-          } items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-2xl sm:rounded-full border border-[#dbe7f5] shadow-md font-khmer select-none`}
-          style={{
-            backgroundColor: "rgba(255, 255, 255, 0.94)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-          }}
-        >
-          {/* Expand all button */}
-          <button
-            id="btn-expand-all"
-            type="button"
-            onClick={handleExpandAll}
-            className="px-2 py-1 rounded-full text-[11px] sm:text-xs font-semibold text-[#1c2e48] hover:text-[#2f7de1] hover:bg-[#ebf3fc] transition-all cursor-pointer flex items-center gap-1"
-            title="បើកមើលគ្រប់ជំនាន់ទាំងអស់ (Expand all generations)"
-          >
-            <FolderTree className="w-3.5 h-3.5 text-[#2f7de1]" />
-            <span>{language === "km" ? "បើកទាំងអស់" : "Expand all"}</span>
-          </button>
-
-          <div className="h-3.5 w-px bg-[#dbe7f5]" />
-
-          {/* Collapse to Gen 3 button */}
-          <button
-            id="btn-collapse-gen3"
-            type="button"
-            onClick={handleCollapseToGen3}
-            className="px-2 py-1 rounded-full text-[11px] sm:text-xs font-semibold text-[#1c2e48] hover:text-[#2f7de1] hover:bg-[#ebf3fc] transition-all cursor-pointer flex items-center gap-1"
-            title="បង្រួមកូនចៅត្រឹមជំនាន់ទី ៣ (Collapse to Gen 3)"
-          >
-            <Layers className="w-3.5 h-3.5 text-[#f59e0b]" />
-            <span>{language === "km" ? "បង្រួមត្រឹមជំនាន់ទី ៣" : "Collapse to Gen 3"}</span>
-          </button>
-
-          <div className="h-3.5 w-px bg-[#dbe7f5]" />
-
-          {/* Fit to screen button */}
-          <button
-            id="btn-fit-screen"
-            type="button"
-            onClick={handleFitToScreen}
-            className="px-2 py-1 rounded-full text-[11px] sm:text-xs font-semibold text-[#1c2e48] hover:text-[#2f7de1] hover:bg-[#ebf3fc] transition-all cursor-pointer flex items-center gap-1"
-            title="ទំហំពេញអេក្រង់ (Fit to screen)"
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-[#10b981]" />
-            <span>{language === "km" ? "ទំហំពេញអេក្រង់" : "Fit to screen"}</span>
-          </button>
-        </div>
-
         {/* Focus Descendants Active Banner (Floating Pill) */}
         {focusedDescendantPersonId && (
           <div className="absolute top-18 left-4 z-30 flex items-center gap-3 bg-amber-50 border border-amber-300 text-amber-950 px-3 py-1.5 rounded-xl shadow-md text-xs font-khmer animate-in slide-in-from-top-2">
