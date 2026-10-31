@@ -63,6 +63,7 @@ import {
   ChevronLeft,
   Copy,
   Link2,
+  Lock,
 } from "lucide-react";
 
 interface PersonDetail extends TreePerson {
@@ -1429,6 +1430,7 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
       params.set("addMember", "1");
       if (anchor) params.set("anchorId", anchor);
       if (rel) params.set("relType", rel);
+      params.set("familyKey", process.env.NEXT_PUBLIC_FAMILY_PASSCODE || "tieng2026");
 
       const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
       try {
@@ -2309,6 +2311,20 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
                     <span>{language === "km" ? "ចម្លងលីង" : "Copy Link"}</span>
                   </>
                 )}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/family-auth", { method: "DELETE" });
+                  window.location.href = "/login";
+                }}
+                className="px-2.5 py-1.5 rounded-full bg-white hover:bg-rose-50 text-[#5b718a] hover:text-rose-700 border border-[#cbdcf0] font-bold text-xs flex items-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer font-khmer"
+                title="ចាក់សោមែកធាងគ្រួសារ (Lock family tree)"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">
+                  {language === "km" ? "ចាក់សោ" : "Lock"}
+                </span>
               </button>
             </div>
           )}
