@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   FAMILY_ACCESS_COOKIE,
-  FAMILY_ACCESS_COOKIE_VALUE,
   isFamilyAccessCookieValid,
-  isValidFamilyPasscode,
+  isLinkPreviewBot,
 } from "@/lib/family-gate";
 
 function withPrivacyHeaders(res: NextResponse): NextResponse {
@@ -14,36 +13,43 @@ function withPrivacyHeaders(res: NextResponse): NextResponse {
 export async function updateSession(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // 1. Always allow robots.txt
-  if (pathname === "/robots.txt") {
+  // 1. Always allow robots.txt and family-auth endpoints
+  if (pathname === "/robots.txt" || pathname.startsWith("/api/family-auth")) {
     return withPrivacyHeaders(NextResponse.next({ request }));
   }
 
-  // 2. Check if a shared invite link includes ?familyKey=...
-  const familyKeyParam = searchParams.get("familyKey");
-  if (familyKeyParam && isValidFamilyPasscode(familyKeyParam)) {
-    const cleanUrl = request.nextUrl.clone();
-    cleanUrl.searchParams.delete("familyKey");
-    if (cleanUrl.pathname.startsWith("/login") || cleanUrl.pathname.startsWith("/dashboard")) {
-      cleanUrl.pathname = "/";
+  // 2. Handle one-time invite link (?inviteToken=inv_...)
+  const inviteToken = searchParams.get("inviteToken");
+  if (inviteToken) {
+    // Do not burn one-time token when Telegram/Messenger/WhatsApp preview crawler fetches link
+    if (isLinkPreviewBot(request.headers.get("user-agent"), request.method)) {
+      return withPrivacyHeaders(
+        new NextResponse(
+          "<!DOCTYPE html><html><head><title>កូនចៅត្រកូល ទៀង</title><meta name=\"robots\" content=\"noindex,nofollow\"/></head><body></body></html>",
+          {
+            status: 200,
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          }
+        )
+      );
     }
-    const redirectRes = NextResponse.redirect(cleanUrl);
-    redirectRes.cookies.set(FAMILY_ACCESS_COOKIE, FAMILY_ACCESS_COOKIE_VALUE, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 90,
-    });
-    return withPrivacyHeaders(redirectRes);
+
+    const cleanUrl = request.nextUrl.clone();
+    cleanUrl.searchParams.delete("inviteToken");
+    const nextTarget =
+      (cleanUrl.pathname.startsWith("/login") || cleanUrl.pathname.startsWith("/dashboard")
+        ? "/"
+        : cleanUrl.pathname) + (cleanUrl.search || "");
+
+    const consumeUrl = request.nextUrl.clone();
+    consumeUrl.pathname = "/api/family-auth/consume";
+    consumeUrl.search = "";
+    consumeUrl.searchParams.set("inviteToken", inviteToken);
+    consumeUrl.searchParams.set("next", nextTarget);
+    return withPrivacyHeaders(NextResponse.redirect(consumeUrl));
   }
 
-  // 3. Allow the family passcode authentication endpoint
-  if (pathname.startsWith("/api/family-auth")) {
-    return withPrivacyHeaders(NextResponse.next({ request }));
-  }
-
-  // 4. Verify family access cookie
+  // 3. Verify family access cookie
   const cookieVal = request.cookies.get(FAMILY_ACCESS_COOKIE)?.value;
   const hasFamilyAccess = isFamilyAccessCookieValid(cookieVal);
 
@@ -71,7 +77,7 @@ export async function updateSession(request: NextRequest) {
     return withPrivacyHeaders(NextResponse.next({ request }));
   }
 
-  // 5. Authenticated family member visiting /login or /dashboard -> redirect to /
+  // 4. Authenticated family member visiting /login or /dashboard -> redirect to /
   if (pathname.startsWith("/login") || pathname.startsWith("/dashboard")) {
     const targetFrom = searchParams.get("redirectedFrom");
     const url = request.nextUrl.clone();

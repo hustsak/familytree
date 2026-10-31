@@ -19,6 +19,7 @@ function FamilyPasscodeGateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get("redirectedFrom") || "/";
+  const reason = searchParams.get("reason");
 
   const [passcode, setPasscode] = useState("");
   const [showPasscode, setShowPasscode] = useState(false);
@@ -150,6 +151,17 @@ function FamilyPasscodeGateContent() {
                 : "This family tree is private. Please enter the family passcode to view and manage family members."}
             </p>
           </div>
+
+          {reason === "link_used" && !errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2 leading-relaxed">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>
+                {language === "km"
+                  ? "លីងអញ្ជើញនេះត្រូវបានប្រើប្រាស់រួចហើយ។ សូមបញ្ចូលលេខកូដសម្ងាត់គ្រួសារដើម្បីចូលមើល។"
+                  : "This shared invite link has already been used. Please enter the family passcode to access."}
+              </span>
+            </div>
+          )}
 
           {errorMsg && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 leading-relaxed">

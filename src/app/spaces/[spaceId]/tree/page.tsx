@@ -1430,7 +1430,20 @@ export function FamilyTreeCanvas({ spaceId: propSpaceId }: { spaceId?: string })
       params.set("addMember", "1");
       if (anchor) params.set("anchorId", anchor);
       if (rel) params.set("relType", rel);
-      params.set("familyKey", process.env.NEXT_PUBLIC_FAMILY_PASSCODE || "tieng2026");
+
+      // Generate a one-time invite token so the first recipient opens directly,
+      // but if they forward the link to anyone else, the passcode (teang2026) is required
+      try {
+        const invRes = await fetch("/api/family-auth/invite", { method: "POST" });
+        if (invRes.ok) {
+          const invData = await invRes.json();
+          if (invData.inviteToken) {
+            params.set("inviteToken", invData.inviteToken);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not generate one-time invite token:", err);
+      }
 
       const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
       try {
